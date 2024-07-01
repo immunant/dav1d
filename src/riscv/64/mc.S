@@ -30,28 +30,20 @@
 .macro w_mask_fn type
 function w_mask_\type\()_8bpc_rvv, export=1, ext="v,zba,zbb"
 
-    csrw vxrm, zero
-
-    sltiu t3, a4, 32
-    la t4, L(w_mask_\type\()_tbl)
-    sll t6, t3, 1
+    li t3, 32
+    li t2, 38*256+8
     li t1, 64
-    add t5, t4, t6
+    csrw vxrm, zero
+    bltu a4, t3, L(w_mask_\type\()_small)
 
-    lh t3, (t5)
-    li t2, 38
-    sub t3, t4, t3
-    jr t3
-
-.irp size, small, large # for multiplier optimization
+.irp size, large, small,  # for multiplier optimization
 L(w_mask_\type\()_\size\()):
 3:
     # x will be in t5
     mv t5, a4
     mv t0, a0
-
 2:
-    # m8 would prevent too many of the reordering optimizations
+    # m8 cannot be used because of the vwmul
 .ifc \size, large
     vsetvli t6, t5, e16, m4, ta, ma
 .else
@@ -68,9 +60,8 @@ L(w_mask_\type\()_\size\()):
     vsub.vv v12, v4, v0
     srli t3, t6, 1 # w >> 1 for mask[x >> 1]
     vmax.vv v8, v8, v12
-    vadd.vi v8, v8, 8
-    vsra.vi v8, v8, 8
     vadd.vx v8, v8, t2
+    vsra.vi v8, v8, 8
     vmin.vx v8, v8, t1
 
     vrsub.vx v12, v8, t1
@@ -83,7 +74,6 @@ L(w_mask_\type\()_\size\()):
     vwmacc.vv v16, v4, v12
 
     vnsrl.wi v4, v8, 16 # holds n
-
 
     vnclipu.wi v24, v16, 10
     vmax.vx v12, v24, zero
@@ -109,8 +99,7 @@ L(w_mask_\type\()_\size\()):
 
     # h & ss_ver
     andi t3, a5, 1
-    # we have m and n in v0 and v4
-    # add them together
+    # we have m and n in v0 and v4, add them together
     vadd.vv v0, v0, v4
     add t4, a6, t4
 
@@ -120,14 +109,13 @@ L(w_mask_\type\()_\size\()):
     # mask[x >> 1] = (m + n + mask[x >> 1] + 2 - sign) >> 2;
     vle8.v v2, (t4)
     vsub.vx v0, v0, a7
-    vsext.vf2 v4, v2
-    vadd.vv v2, v0, v4
 .ifc \size, large
     vsetvli zero, zero, e8, m1, ta, ma
 .else
     vsetvli zero, zero, e8, mf4, ta, ma
 .endif
-    vnclip.wi v0, v2, 2
+    vwadd.wv v4, v0, v2
+    vnclip.wi v0, v4, 2
     j 5f
 1:
     # mask[x >> 1] = m + n;
@@ -160,7 +148,7 @@ L(w_mask_\type\()_\size\()):
     add t4, a6, t4
 .endif
 5:
-    # move x
+    # update x
     sub t5, t5, t6
 
     vse8.v v0, (t4)
@@ -193,11 +181,6 @@ L(w_mask_\type\()_\size\()):
     bnez a5, 3b
     ret
 .endr
-
-L(w_mask_\type\()_tbl):
-    .hword L(w_mask_\type\()_tbl) - L(w_mask_\type\()_large)
-    .hword L(w_mask_\type\()_tbl) - L(w_mask_\type\()_small)
-
 endfunc
 .endm
 
