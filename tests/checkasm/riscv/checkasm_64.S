@@ -110,11 +110,11 @@ function checked_call, export=1, ext=v
   beqz a0, 0f
 
   /* Clobber vector configuration */
-  vsetvli t0, zero, e32, m8, ta, ma
+  vsetvli zero, zero, e64, m8, ta, ma
   lla t0, register_init
   ld t0, (t0)
 .irp n, 0, 8, 16, 24
-  vmv.v.x v0, t0
+  vmv.v.x v\n, t0
 .endr
   li t0, -1 << 31
   vsetvl zero, zero, t0
