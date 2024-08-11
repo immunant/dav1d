@@ -43,6 +43,9 @@ decl_w_mask_fn(BF(dav1d_w_mask_444, rvv));
 decl_w_mask_fn(BF(dav1d_w_mask_422, rvv));
 decl_w_mask_fn(BF(dav1d_w_mask_420, rvv));
 
+decl_warp8x8_fn(BF(dav1d_warp_8x8, rvv));
+decl_warp8x8t_fn(BF(dav1d_warp_8x8t, rvv));
+
 static ALWAYS_INLINE void mc_dsp_init_riscv(Dav1dMCDSPContext *const c) {
   const unsigned flags = dav1d_get_cpu_flags();
 
@@ -66,5 +69,8 @@ static ALWAYS_INLINE void mc_dsp_init_riscv(Dav1dMCDSPContext *const c) {
   c->w_mask[0] = BF(dav1d_w_mask_444, rvv);
   c->w_mask[1] = BF(dav1d_w_mask_422, rvv);
   c->w_mask[2] = BF(dav1d_w_mask_420, rvv);
+
+  c->warp8x8 = BF(dav1d_warp_8x8, rvv);
+  c->warp8x8t = BF(dav1d_warp_8x8t, rvv);
 #endif
 }
