@@ -78,7 +78,7 @@ COLD void dav1d_default_settings(Dav1dSettings *const s) {
     s->logger.cookie = NULL;
     s->logger.callback = dav1d_log_default_callback;
     s->operating_point = 0;
-    s->all_layers = 1; // just until the tests are adjusted
+    s->all_layers = 0;
     s->frame_size_limit = 0;
     s->strict_std_compliance = 0;
     s->output_invisible_frames = 0;
