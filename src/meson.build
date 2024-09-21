@@ -228,7 +228,7 @@ if is_asm_enabled
         endif
 
         # Compile the ASM sources with NASM
-        libdav1d_asm_objs = nasm_gen.process(libdav1d_sources_asm)
+        libdav1d_asm_objs += libdav1d_sources_asm
     elif host_machine.cpu_family().startswith('loongarch')
         libdav1d_sources += files(
             'loongarch/cpu.c',

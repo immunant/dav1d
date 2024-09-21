@@ -3,6 +3,7 @@ c = 'gcc'
 cpp = 'g++'
 ar = 'ar'
 strip = 'strip'
+nasm = 'nasm'
 
 [properties]
 c_link_args = ['-m32', '-Wl,-z,text']

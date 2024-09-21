@@ -28,7 +28,7 @@ project('dav1d', ['c'],
                       'warning_level=2',
                       'buildtype=release',
                       'b_ndebug=if-release'],
-    meson_version: '>= 0.49.0')
+    meson_version: '>= 0.64.0')
 
 dav1d_src_root = meson.current_source_dir()
 cc = meson.get_compiler('c')
@@ -521,18 +521,7 @@ if is_asm_enabled and host_machine.cpu_family().startswith('x86')
         nasm_format += '32'
     endif
 
-    nasm_gen = generator(nasm,
-        output: '@BASENAME@.obj',
-        depfile: '@BASENAME@.obj.ndep',
-        arguments: [
-            '-f', nasm_format,
-            '-I', '@0@/src/'.format(dav1d_src_root),
-            '-I', '@0@/'.format(meson.current_build_dir()),
-            '-MQ', '@OUTPUT@', '-MF', '@DEPFILE@',
-            '@EXTRA_ARGS@',
-            '@INPUT@',
-            '-o', '@OUTPUT@'
-        ])
+    add_languages('nasm', native: false, required: true)
 endif
 
 use_gaspp = false
