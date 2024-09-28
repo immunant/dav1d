@@ -314,6 +314,21 @@ endif
 # Library definitions
 #
 
+# ia2
+ia2_path = get_option('ia2_path')
+pkey = 0
+
+link_args = []
+if ia2_path != ''
+    libdav1d_flags += ia2_dso_args
+    libdav1d_flags += [
+        f'-DPKEY=@pkey@',
+    ]
+    link_args += [
+        f'@../callgate_wrapper_@pkey@.ld',
+    ]
+endif
+
 # Helper library for each bitdepth
 libdav1d_bitdepth_objs = []
 foreach bitdepth : dav1d_bitdepths
@@ -323,6 +338,7 @@ foreach bitdepth : dav1d_bitdepths
         include_directories: dav1d_inc_dirs,
         dependencies : [stdatomic_dependencies],
         c_args : ['-DBITDEPTH=@0@'.format(bitdepth)] + libdav1d_flags,
+        link_args: link_args,
         install : false,
         build_by_default : false,
     ).extract_all_objects(recursive: true)
@@ -337,6 +353,7 @@ foreach bitdepth : dav1d_bitdepths
             include_directories: dav1d_inc_dirs,
             dependencies : [stdatomic_dependencies],
             c_args : ['-DBITDEPTH=@0@'.format(bitdepth)] + libdav1d_flags + arch_flags.get(subarch, []),
+            link_args: link_args,
             install : false,
             build_by_default : false,
         ).extract_all_objects(recursive: true)
@@ -369,6 +386,7 @@ libdav1d = library('dav1d',
         libdl_dependency,
         ],
     c_args : [libdav1d_flags, api_export_flags],
+    link_args: link_args,
     version : dav1d_soname_version,
     soversion : dav1d_soversion,
     install : true,

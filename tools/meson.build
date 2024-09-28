@@ -78,8 +78,16 @@ endif
 # Build definition for the dav1d tools
 #
 
+# ia2
+ia2_path = get_option('ia2_path')
+pkey = 1
+
 # Configuratin data for cli_config.h
 cli_cdata = configuration_data()
+
+if ia2_path != ''
+    cli_cdata.set('PKEY', pkey)
+endif
 
 cli_cdata.set10('HAVE_XXHASH_H', get_variable('xxh3_found', false))
 
@@ -106,12 +114,27 @@ else
     dav1d_rc_obj = []
 endif
 
+c_args = []
+link_args = []
+
+if ia2_path != ''
+    c_args += ia2_dso_args
+    link_args += [
+        f'@../callgate_wrapper_@pkey@.ld',
+        '--wrap=main',
+        '--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
+        '--export-dynamic',
+    ]
+endif
+
 dav1d = executable('dav1d',
     dav1d_sources,
     dav1d_rc_obj,
     rev_target, cli_config_h_target,
 
+    c_args: c_args,
     link_with : [libdav1d, dav1d_input_objs, dav1d_output_objs],
+    link_args: link_args,
     include_directories : [dav1d_inc_dirs],
     dependencies : [
         getopt_dependency,

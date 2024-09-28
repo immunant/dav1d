@@ -73,3 +73,8 @@ option('macos_kperf',
     type: 'boolean',
     value: false,
     description: 'Use the private macOS kperf API for benchmarking')
+
+option('ia2_path',
+    type: 'string',
+    value: '',
+    description: 'The path to the IA2 repo, and enable IA2 (assuming ia2-rewriter has already run)')

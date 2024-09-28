@@ -574,6 +574,34 @@ endif
 config_h_target = configure_file(output: 'config.h', configuration: cdata)
 
 
+# ia2
+ia2_path = get_option('ia2_path')
+if ia2_path != ''
+    ia2_args = [
+        '-DIA2_ENABLE=1',
+        '-I' + join_paths(ia2_path, 'runtime/libia2/include'),
+        '-include',
+        join_paths(dav1d_src_root, 'callgate_wrapper.h'),
+        '-Werror=incompatible-pointer-types',
+        # overrides
+        '-std=gnu99',
+        '-Wno-strict-prototypes',
+    ]
+    ia2_dso_args = [
+        '-fPIC',
+        '-Wl,--wrap=pthread_create',
+        '-pthread',
+        join_paths(ia2_path, 'build/runtime/libia2/liblibia2.a'),
+    ]
+    ia2_dso_link_args = [
+        '--wrap=pthread_create',
+        '-z,now',
+        '-z,relro',
+        '-T' + join_paths(ia2_path, '/runtime/libia2/padding.ld'),
+    ]
+    add_project_arguments(ia2_args, language: 'c')
+    add_project_link_arguments(ia2_dso_link_args, language: 'c')
+endif
 
 #
 # Include subdir meson.build files
