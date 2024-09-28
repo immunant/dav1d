@@ -1,12 +1,18 @@
+#!/usr/bin/env -S uv run
+
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "plumbum",
 # ]
 # ///
 from dataclasses import dataclass
 import json
 from pathlib import Path
-import subprocess
+import shlex
+import sys
+from typing import Sequence
+from plumbum import local
 
 
 @dataclass
@@ -17,13 +23,42 @@ class Compartment:
     main: Path
 
 
+def extra_args(*args: list[str | Path]) -> Sequence[str | Path]:
+    return (b for a in args for b in ["--extra-arg", a])
+
+
 def main():
-    cc_db = Path("build/compile_commands.json")
     cwd = Path.cwd()
+    build_dir = cwd / "build"
     ia2_dir = cwd / "../ia2"
-    llvm_libdir = Path(
-        subprocess.check_output(["llvm-config", "--libdir"]).decode().strip()
-    )
+    ia2_cwd = cwd / ".." / f"{cwd.name}-ia2"
+    cc_db = build_dir / "compile_commands.json"
+
+    meson = local["meson"]
+    ninja = local["ninja"]
+    canonicalize_compile_command_paths = local[
+        ia2_dir / "tools/rewriter/canonicalize_compile_command_paths.py"
+    ]
+    git = local["git"]
+    llvm_config = local["llvm-config"]
+    ia2_rewriter = local[ia2_dir / "build/tools/rewriter/ia2-rewriter"]
+    gdb = local["gdb"]
+
+    build_dir.mkdir(exist_ok=True)
+    with local.cwd(build_dir):
+        meson["setup", cwd, "--reconfigure"]()
+        ninja()
+        canonicalize_compile_command_paths()
+
+    if not ia2_cwd.is_dir():
+        git["clone", cwd, ia2_cwd]()
+
+    with local.cwd(ia2_cwd):
+        git["stash", "push"]()
+        git["pull", "--rebase"]()
+        git["stash", "pop"]()
+
+    llvm_libdir = Path(llvm_config["--libdir"]().strip())
     assert llvm_libdir.is_dir()
 
     pkeys = {
@@ -55,63 +90,54 @@ def main():
     for compartment in compartments.values():
         assert compartment.main in compartment.srcs
 
-        text = compartment.main.read_text()
-        is_binary = "int main" in text
-        ia2_lines = [
-            "#include <ia2.h>",
-            f"INIT_RUNTIME({len(compartments)}); // This is the number of pkeys needed."
-            if is_binary
-            else "",
-            f"#define IA2_COMPARTMENT {compartment.pkey}",
-            "#include <ia2_compartment_init.inc>",
-        ]
-        ia2_header = "\n".join(line for line in ia2_lines if line)
-        if not text.startswith(ia2_header):
-            compartment.main.write_text(ia2_header + "\n\n" + text)
+        for main in (cwd / compartment.main, ia2_cwd / compartment.main):
+            text = main.read_text()
+            is_binary = "int main" in text
+            ia2_lines = [
+                "#include <ia2.h>",
+                f"INIT_RUNTIME({len(compartments)}); // This is the number of pkeys needed."
+                if is_binary
+                else "",
+                f"#define IA2_COMPARTMENT {compartment.pkey}",
+                "#include <ia2_compartment_init.inc>",
+            ]
+            ia2_header = "\n".join(line for line in ia2_lines if line)
+            if not text.startswith(ia2_header):
+                main.write_text(ia2_header + "\n\n" + text)
 
-        output_dir = cwd / "ia2"
-        rewriter_cmd = [
-            ia2_dir / "build/tools/rewriter/ia2-rewriter",
+        rewrite = ia2_rewriter[
             "--output-prefix",
-            output_dir / "callgate_wrapper",
+            ia2_cwd / "callgate_wrapper",
             "--root-directory",
             cwd,
             "--output-directory",
-            output_dir,
+            ia2_cwd,
             "-p",
-            cwd / "build",
-            "--extra-arg",
-            "-isystem",
-            "--extra-arg",
-            "include-fixed",
-            "--extra-arg",
-            "-isystem",
-            "--extra-arg",
-            llvm_libdir / "clang/18/include",
-            "--extra-arg",
-            f"-DPKEY={compartment.pkey}",
-            "--extra-arg",
-            f"-I{str(ia2_dir / "runtime/libia2/include/")}",
-            "--extra-arg",
-            "-Wno-error=missing-prototypes",  # ia2 include needs this
-            "--extra-arg",
-            "-std=gnu11",  # need this for ia2 include
-            "--extra-arg",
-            "-Wno-missing-prototypes",
-            "--extra-arg",
-            "-Wno-undef",
-            "--extra-arg",
-            "-Wno-strict-prototypes",
-            "--extra-arg",
-            "-Wno-unknown-warning-option",
-            "--extra-arg",
-            "-Wno-macro-redefined",
+            cc_db.parent,
+            *extra_args(
+                "-isystem",
+                "include-fixed",
+                "-isystem",
+                llvm_libdir / "clang/18/include",
+                f"-DPKEY={compartment.pkey}",
+                f"-I{str(ia2_dir / "runtime/libia2/include/")}",
+                "-Wno-error=missing-prototypes",  # ia2 include needs this
+                "-std=gnu99",  # need this for ia2 include
+                "-Wno-missing-prototypes",
+                "-Wno-undef",
+                "-Wno-strict-prototypes",
+                "-Wno-unknown-warning-option",
+                "-Wno-macro-redefined",
+            ),
             *[cwd / src for src in compartment.srcs],
         ]
-        print(f"> {" ".join(str(arg) for arg in rewriter_cmd)}")
-        process = subprocess.run(rewriter_cmd)
-        if process.returncode != 0:
-            subprocess.run(["gdb", "--args", *rewriter_cmd])
+
+        print(f"> {shlex.join(rewrite.formulate())}")
+        retcode, _stdout, _stderr = rewrite.run(
+            retcode=None, stdout=sys.stdout, stderr=sys.stderr
+        )
+        if retcode != 0:
+            gdb["--args", *rewrite.formulate()]()
 
 
 if __name__ == "__main__":
