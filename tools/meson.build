@@ -39,6 +39,26 @@ dav1d_output_sources = files(
     'output/yuv.c',
 )
 
+# ia2
+ia2_path = get_option('ia2_path')
+pkey = 1
+
+c_args = []
+link_args = []
+
+if ia2_path != ''
+    c_args += ia2_dso_args
+    c_args += [
+        f'-DPKEY=@pkey@',
+    ]
+    link_args += [
+        f'@../callgate_wrapper_@pkey@.ld',
+        '--wrap=main',
+        '--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
+        '--export-dynamic',
+    ]
+endif
+
 # hacky check for xxhash.h to allow copying it to tools/output
 if not get_option('xxhash_muxer').disabled()
     xxhash_include = '-I' + meson.current_source_dir() / 'output'
@@ -54,6 +74,7 @@ endif
 dav1d_input_objs = static_library('dav1d_input',
     dav1d_input_sources,
 
+    c_args: c_args,
     include_directories : dav1d_inc_dirs,
     install : false,
     build_by_default : false,
@@ -62,6 +83,7 @@ dav1d_input_objs = static_library('dav1d_input',
 dav1d_output_objs = static_library('dav1d_output',
     dav1d_output_sources,
 
+    c_args: c_args,
     include_directories : dav1d_inc_dirs,
     install : false,
     build_by_default : false,
@@ -73,21 +95,12 @@ if not get_option('enable_tools')
     subdir_done()
 endif
 
-
 #
 # Build definition for the dav1d tools
 #
 
-# ia2
-ia2_path = get_option('ia2_path')
-pkey = 1
-
 # Configuratin data for cli_config.h
 cli_cdata = configuration_data()
-
-if ia2_path != ''
-    cli_cdata.set('PKEY', pkey)
-endif
 
 cli_cdata.set10('HAVE_XXHASH_H', get_variable('xxh3_found', false))
 
@@ -112,19 +125,6 @@ if host_machine.system() == 'windows'
     )
 else
     dav1d_rc_obj = []
-endif
-
-c_args = []
-link_args = []
-
-if ia2_path != ''
-    c_args += ia2_dso_args
-    link_args += [
-        f'@../callgate_wrapper_@pkey@.ld',
-        '--wrap=main',
-        '--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
-        '--export-dynamic',
-    ]
 endif
 
 dav1d = executable('dav1d',

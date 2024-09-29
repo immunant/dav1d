@@ -28,7 +28,7 @@ project('dav1d', ['c'],
                       'warning_level=2',
                       'buildtype=release',
                       'b_ndebug=if-release'],
-    meson_version: '>= 0.49.0')
+    meson_version: '>= 0.58.0')
 
 dav1d_src_root = meson.current_source_dir()
 cc = meson.get_compiler('c')
@@ -586,6 +586,9 @@ if ia2_path != ''
         # overrides
         '-std=gnu99',
         '-Wno-strict-prototypes',
+        '-Wno-missing-prototypes',
+        # convenience
+        '-fdiagnostics-color=always',
     ]
     ia2_dso_args = [
         '-fPIC',

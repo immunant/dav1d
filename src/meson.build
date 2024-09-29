@@ -316,7 +316,7 @@ endif
 
 # ia2
 ia2_path = get_option('ia2_path')
-pkey = 0
+pkey = 2
 
 link_args = []
 if ia2_path != ''
@@ -328,6 +328,8 @@ if ia2_path != ''
         f'@../callgate_wrapper_@pkey@.ld',
     ]
 endif
+
+warning(libdav1d_flags)
 
 # Helper library for each bitdepth
 libdav1d_bitdepth_objs = []
