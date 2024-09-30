@@ -1,6 +1,6 @@
 /*
- * Copyright © 2023, VideoLAN and dav1d authors
- * Copyright © 2023, Loongson Technology Corporation Limited
+ * Copyright © 2024, VideoLAN and dav1d authors
+ * Copyright © 2024, Loongson Technology Corporation Limited
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,24 +25,29 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DAV1D_SRC_LOONGARCH_REFMVS_H
-#define DAV1D_SRC_LOONGARCH_REFMVS_H
+#ifndef DAV1D_SRC_LOONGARCH_CDEF_H
+#define DAV1D_SRC_LOONGARCH_CDEF_H
 
+#include "config.h"
+#include "src/cdef.h"
 #include "src/cpu.h"
-#include "src/refmvs.h"
 
-decl_splat_mv_fn(dav1d_splat_mv_lsx);
-decl_load_tmvs_fn(dav1d_load_tmvs_lsx);
-decl_save_tmvs_fn(dav1d_save_tmvs_lsx);
+decl_cdef_dir_fn(BF(dav1d_cdef_find_dir, lsx));
+decl_cdef_fn(BF(dav1d_cdef_filter_block_4x4, lsx));
+decl_cdef_fn(BF(dav1d_cdef_filter_block_4x8, lsx));
+decl_cdef_fn(BF(dav1d_cdef_filter_block_8x8, lsx));
 
-static ALWAYS_INLINE void refmvs_dsp_init_loongarch(Dav1dRefmvsDSPContext *const c) {
+static ALWAYS_INLINE void cdef_dsp_init_loongarch(Dav1dCdefDSPContext *const c) {
     const unsigned flags = dav1d_get_cpu_flags();
 
     if (!(flags & DAV1D_LOONGARCH_CPU_FLAG_LSX)) return;
 
-    c->splat_mv = dav1d_splat_mv_lsx;
-    c->load_tmvs = dav1d_load_tmvs_lsx;
-    c->save_tmvs = dav1d_save_tmvs_lsx;
+#if BITDEPTH == 8
+    c->dir = BF(dav1d_cdef_find_dir, lsx);
+    c->fb[0] = BF(dav1d_cdef_filter_block_8x8, lsx);
+    c->fb[1] = BF(dav1d_cdef_filter_block_4x8, lsx);
+    c->fb[2] = BF(dav1d_cdef_filter_block_4x4, lsx);
+#endif
 }
 
-#endif /* DAV1D_SRC_LOONGARCH_REFMVS_H */
+#endif /* DAV1D_SRC_LOONGARCH_CDEF_H */

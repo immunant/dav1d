@@ -239,6 +239,8 @@ if is_asm_enabled
         )}
 
         libdav1d_sources_asm = files(
+            'loongarch/cdef.S',
+            'loongarch/ipred.S',
             'loongarch/mc.S',
             'loongarch/loopfilter.S',
             'loongarch/looprestoration.S',
