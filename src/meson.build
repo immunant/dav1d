@@ -315,18 +315,21 @@ endif
 #
 
 # ia2
-ia2_path = get_option('ia2_path')
 pkey = 2
-
 link_args = []
+
 if ia2_path != ''
-    libdav1d_flags += ia2_dso_args
+    if ia2_enable
+        libdav1d_flags += ia2_dso_args
+    endif
     libdav1d_flags += [
         f'-DPKEY=@pkey@',
     ]
-    link_args += [
-        f'@../callgate_wrapper_@pkey@.ld',
-    ]
+    if ia2_enable
+        link_args += [
+            f'@../callgate_wrapper_@pkey@.ld',
+        ]
+    endif
 endif
 
 warning(libdav1d_flags)

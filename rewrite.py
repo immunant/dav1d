@@ -60,10 +60,12 @@ def main():
     cc = local["cc"]
     patch = local["patch"]
 
+    ia2_path_arg = f"-Dia2_path={str(ia2_dir)}"
+
     build_dir.mkdir(exist_ok=True)
     with local.cwd(build_dir):
-        meson["setup", cwd, "--reconfigure"]()
-        ninja()
+        meson["setup", cwd, "--reconfigure", ia2_path_arg]()
+        ninja["include/vcs_version.h"]()
         canonicalize_compile_command_paths()
 
     if not ia2_cwd.is_dir():
@@ -81,7 +83,7 @@ def main():
     pkeys = {
         # 0 is the untrusted/shared compartment
         "src": (2, "lib.c"),
-        "tools": (1, "dav1d.c"), # main compartment has to be 1
+        "tools": (1, "dav1d.c"),  # main compartment has to be 1
         # "tests": (1, "seek_stress.c"),
     }
 
@@ -125,45 +127,52 @@ def main():
             if not text.startswith(ia2_header):
                 main.write_text(ia2_header + "\n\n" + text)
 
-        rewrite = ia2_rewriter[
-            "--output-prefix",
-            ia2_cwd / "callgate_wrapper",
-            "--root-directory",
-            cwd,
-            "--output-directory",
-            ia2_cwd,
-            "-p",
-            cc_db.parent,
-            *extra_args(
-                "-isystem",
-                "include-fixed",
-                "-isystem",
-                llvm_libdir / "clang/18/include",
-                *define_args(IA2_ENABLE=1, PKEY=compartment.pkey),
-                *include_args(ia2_include),
-                "-std=gnu99",  # need this for ia2 include
-                "-Wno-error=missing-prototypes",  # ia2 include needs this
-                *wno_args(
-                    "missing-prototypes",
-                    "undef",
-                    "strict-prototypes",
-                    "unknown-warning-option",
-                    "macro-redefined",
-                ),
+    rewrite = ia2_rewriter[
+        "--output-prefix",
+        ia2_cwd / "callgate_wrapper",
+        "--root-directory",
+        cwd,
+        "--output-directory",
+        ia2_cwd,
+        "-p",
+        cc_db.parent,
+        *extra_args(
+            "-isystem",
+            "include-fixed",
+            "-isystem",
+            llvm_libdir / "clang/18/include",
+            # *define_args(IA2_ENABLE=1, PKEY=compartment.pkey),
+            # *include_args(ia2_include),
+            # "-std=gnu99",  # need this for ia2 include
+            # "-Wno-error=missing-prototypes",  # ia2 include needs this
+            *wno_args(
+                "missing-prototypes",
+                "undef",
+                "strict-prototypes",
+                "unknown-warning-option",
+                "macro-redefined",
             ),
-            *[cwd / src for src in compartment.srcs],
-        ]
+        ),
+        srcs,
+    ]
 
-        print(f"> {shlex.join(rewrite.formulate())}")
-        # continue
-        retcode, _stdout, _stderr = rewrite.run(
-            retcode=None, stdout=sys.stdout, stderr=sys.stderr
-        )
-        if retcode != 0:
-            gdb["--args", *rewrite.formulate()]()
+    print(f"> {shlex.join(rewrite.formulate())}")
+    retcode, _stdout, _stderr = rewrite.run(
+        retcode=None, stdout=sys.stdout, stderr=sys.stderr
+    )
+    if retcode != 0:
+        gdb["--args", *rewrite.formulate()]()
 
     with local.cwd(ia2_cwd):
-        patch["--forward", "--reject-file", "-", "--input", cwd / "ia2_fn.diff", "--strip", "1"](retcode=None)
+        patch[
+            "--forward",
+            "--reject-file",
+            "-",
+            "--input",
+            cwd / "ia2_fn.diff",
+            "--strip",
+            "1",
+        ](retcode=None)
         cc[
             "-shared",
             "-fPIC",
@@ -177,7 +186,7 @@ def main():
 
     ia2_build_dir.mkdir(exist_ok=True)
     with local.cwd(ia2_build_dir):
-        meson["setup", ia2_cwd, "--reconfigure", f"-Dia2_path={str(ia2_dir)}"]()
+        meson["setup", ia2_cwd, "--reconfigure", ia2_path_arg, "-Dia2_enable=true"]()
         ninja()
         canonicalize_compile_command_paths()
 

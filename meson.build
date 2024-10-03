@@ -576,13 +576,11 @@ config_h_target = configure_file(output: 'config.h', configuration: cdata)
 
 # ia2
 ia2_path = get_option('ia2_path')
+ia2_enable = get_option('ia2_enable')
 if ia2_path != ''
     ia2_args = [
         '-DIA2_ENABLE=1',
         '-I' + join_paths(ia2_path, 'runtime/libia2/include'),
-        '-include',
-        join_paths(dav1d_src_root, 'callgate_wrapper.h'),
-        '-Werror=incompatible-pointer-types',
         # overrides
         '-std=gnu99',
         '-Wno-strict-prototypes',
@@ -590,6 +588,13 @@ if ia2_path != ''
         # convenience
         '-fdiagnostics-color=always',
     ]
+    if ia2_enable
+        ia2_args += [
+            '-include',
+            join_paths(dav1d_src_root, 'callgate_wrapper.h'),
+            '-Werror=incompatible-pointer-types',
+        ]
+    endif
     ia2_dso_args = [
         '-fPIC',
         '-Wl,--wrap=pthread_create',
@@ -603,7 +608,9 @@ if ia2_path != ''
         '-T' + join_paths(ia2_path, '/runtime/libia2/padding.ld'),
     ]
     add_project_arguments(ia2_args, language: 'c')
-    add_project_link_arguments(ia2_dso_link_args, language: 'c')
+    if ia2_enable
+        add_project_link_arguments(ia2_dso_link_args, language: 'c')
+    endif
 endif
 
 #

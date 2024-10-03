@@ -77,4 +77,9 @@ option('macos_kperf',
 option('ia2_path',
     type: 'string',
     value: '',
-    description: 'The path to the IA2 repo, and enable IA2 (assuming ia2-rewriter has already run)')
+    description: 'The path to the IA2 repo')
+
+option('ia2_enable',
+    type: 'boolean',
+    value: false,
+    description: 'Enable IA2 (assuming ia2-rewriter has already run)')

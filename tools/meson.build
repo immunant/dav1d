@@ -40,23 +40,25 @@ dav1d_output_sources = files(
 )
 
 # ia2
-ia2_path = get_option('ia2_path')
 pkey = 1
-
 c_args = []
 link_args = []
 
 if ia2_path != ''
-    c_args += ia2_dso_args
+    if ia2_enable
+        c_args += ia2_dso_args
+    endif
     c_args += [
         f'-DPKEY=@pkey@',
     ]
-    link_args += [
-        f'@../callgate_wrapper_@pkey@.ld',
-        '--wrap=main',
-        '--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
-        '--export-dynamic',
-    ]
+    if ia2_enable
+        link_args += [
+            f'@../callgate_wrapper_@pkey@.ld',
+            '--wrap=main',
+            '--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
+            '--export-dynamic',
+        ]
+    endif
 endif
 
 # hacky check for xxhash.h to allow copying it to tools/output
