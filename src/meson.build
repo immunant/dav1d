@@ -327,7 +327,7 @@ if ia2_path != ''
     ]
     if ia2_enable
         link_args += [
-            f'@../callgate_wrapper_@pkey@.ld',
+            f'-Wl,@../callgate_wrapper_@pkey@.ld',
         ]
     endif
 endif

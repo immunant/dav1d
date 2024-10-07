@@ -596,16 +596,18 @@ if ia2_path != ''
         ]
     endif
     ia2_dso_args = [
-        '-fPIC',
-        '-Wl,--wrap=pthread_create',
-        '-pthread',
-        join_paths(ia2_path, 'build/runtime/libia2/liblibia2.a'),
+        # '-fPIC',
+        # '-pthread',
+        # join_paths(ia2_path, 'build/runtime/libia2/liblibia2.a'),
     ]
     ia2_dso_link_args = [
-        '--wrap=pthread_create',
-        '-z,now',
-        '-z,relro',
-        '-T' + join_paths(ia2_path, '/runtime/libia2/padding.ld'),
+        '-fPIC',
+        '-pthread',
+        join_paths(ia2_path, 'build/runtime/libia2/liblibia2.a'),
+        '-Wl,--wrap=pthread_create',
+        '-Wl,-z,now',
+        '-Wl,-z,relro',
+        '-Wl,-T' + join_paths(ia2_path, 'runtime/libia2/padding.ld'),
     ]
     add_project_arguments(ia2_args, language: 'c')
     if ia2_enable

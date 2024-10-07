@@ -53,10 +53,10 @@ if ia2_path != ''
     ]
     if ia2_enable
         link_args += [
-            f'@../callgate_wrapper_@pkey@.ld',
-            '--wrap=main',
-            '--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
-            '--export-dynamic',
+            f'-Wl,@../callgate_wrapper_@pkey@.ld',
+            '-Wl,--wrap=main',
+            '-Wl,--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
+            '-Wl,--export-dynamic',
         ]
     endif
 endif
