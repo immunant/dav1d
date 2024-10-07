@@ -80,7 +80,7 @@ typedef struct Dav1dSettings {
     int max_frame_delay; ///< Set to 1 for low-latency decoding (0 = ceil(sqrt(n_threads)), default 0)
     int apply_grain; ///< whether to apply film grain on output frames (default 1)
     int operating_point; ///< select an operating point for scalable AV1 bitstreams (0 - 31, default 0)
-    int all_layers; ///< output all spatial layers of a scalable AV1 biststream (default 1)
+    int all_layers; ///< output all spatial layers of a scalable AV1 biststream (default 0)
     unsigned frame_size_limit; ///< maximum frame size, in pixels (0 = unlimited, default 0)
     Dav1dPicAllocator allocator; ///< Picture allocator callback.
     Dav1dLogger logger; ///< Logger callback.
