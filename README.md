@@ -107,6 +107,33 @@ For 32-bit linux, run
 meson setup build --cross-file=package/crossfiles/i686-linux32.meson
 ```
 
+## Cross-Compilation for 32-bit or 64-bit Android
+
+
+### build for arm64-v8a ABI
+
+prerequirement: ensure Android NDK r21 is installed and ``aarch64-linux-android21-clang`` is available in your shell
+
+```
+mkdir arm64-v8a
+cd arm64-v8a
+meson --buildtype release --cross-file ../package/crossfiles/aarch64-android.meson
+ninja -C .
+```
+
+### build for armeabi-v7a ABI
+
+prerequirement: ensure Android NDK r21 is installed and ``armv7a-linux-androideabi19-clang`` is available in your shell
+
+```
+mkdir armeabi-v7a
+cd armeabi-v7a
+meson --buildtype release --cross-file ../package/crossfiles/arm-android.meson
+ninja -C .
+```
+
+then put the above arm64-v8a and armeabi-v7a directories into your ``jniLibs`` (specified through android.sourceSets.main.jniLibs.srcDir in build.gradle) directory
+
 ## Build documentation
 
 1. Install [doxygen](https://www.doxygen.nl/) and [graphviz](https://www.graphviz.org/)
