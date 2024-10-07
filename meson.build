@@ -608,6 +608,8 @@ if ia2_path != ''
         '-Wl,-z,now',
         '-Wl,-z,relro',
         '-Wl,-T' + join_paths(ia2_path, 'runtime/libia2/padding.ld'),
+        '-L' + dav1d_src_root,
+        '-lcallgates',
     ]
     add_project_arguments(ia2_args, language: 'c')
     if ia2_enable

@@ -372,6 +372,13 @@ else
     dav1d_soversion = dav1d_api_version_major
 endif
 
+override_options = []
+if ia2_path != '' and ia2_enable
+    # turn off `-Wl,--no-undefined`
+    # needed for symbols coming from main compartment that calls `INIT_RUNTIME`
+    override_options += ['b_lundef=false']
+endif
+
 libdav1d = library('dav1d',
     libdav1d_sources,
     libdav1d_asm_objs,
@@ -395,6 +402,7 @@ libdav1d = library('dav1d',
     version : dav1d_soname_version,
     soversion : dav1d_soversion,
     install : true,
+    override_options: override_options,
 )
 
 dav1d_dep = declare_dependency(link_with: libdav1d,
