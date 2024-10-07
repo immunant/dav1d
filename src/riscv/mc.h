@@ -1,4 +1,4 @@
-/******************************************************************************
+/*
  * Copyright © 2018, VideoLAN and dav1d authors
  * Copyright © 2024, Nathan Egge
  * All rights reserved.
@@ -23,27 +23,33 @@
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *****************************************************************************/
+ */
 
-#include "src/riscv/asm.S"
+#include "src/cpu.h"
+#include "src/mc.h"
 
-// This function detects non-compliant RVV 0.7.1 hardware which reports support
-//  for the V extension through HWCAP, by intentionally setting tail and mask
-//  agnostic vector configurations that were only introduced in RVV 0.9 spec.
-// Existing non-compliant (pre RVV 1.0) hardware will set the VILL bit in VTYPE
-//  (indicating an illegal vector configuration) which is stored in the XLEN-1
-//  bit position, thus a simple sign check is sufficient for detection.
-// This work around is inexpensive and harmless on compliant hardware, but we
-//  should still consider removing it once all non-compliant RVV 0.7.1 hardware
-//  is out of service.
-function has_compliant_rvv, export=1, ext=v
-  vsetvli t0, zero, e8, m1, ta, ma
-  csrr a0, vtype
-  sgtz a0, a0
-  ret
-endfunc
+decl_blend_fn(BF(dav1d_blend, rvv));
+decl_blend_dir_fn(BF(dav1d_blend_h, rvv));
+decl_blend_dir_fn(BF(dav1d_blend_v, rvv));
 
-function get_vlenb, export=1
-  csrr a0, vlenb
-  ret
-endfunc
+decl_blend_fn(BF(dav1d_blend_vl256, rvv));
+decl_blend_dir_fn(BF(dav1d_blend_h_vl256, rvv));
+decl_blend_dir_fn(BF(dav1d_blend_v_vl256, rvv));
+
+static ALWAYS_INLINE void mc_dsp_init_riscv(Dav1dMCDSPContext *const c) {
+  const unsigned flags = dav1d_get_cpu_flags();
+
+  if (!(flags & DAV1D_RISCV_CPU_FLAG_V)) return;
+
+#if BITDEPTH == 8
+  c->blend = BF(dav1d_blend, rvv);
+  c->blend_h = BF(dav1d_blend_h, rvv);
+  c->blend_v = BF(dav1d_blend_v, rvv);
+
+  if (dav1d_get_vlen() >= 256) {
+    c->blend = BF(dav1d_blend_vl256, rvv);
+    c->blend_h = BF(dav1d_blend_h_vl256, rvv);
+    c->blend_v = BF(dav1d_blend_v_vl256, rvv);
+  }
+#endif
+}
