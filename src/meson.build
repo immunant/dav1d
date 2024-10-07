@@ -272,6 +272,18 @@ if is_asm_enabled
                 'riscv/64/cpu.S',
                 'riscv/64/itx.S',
             )
+
+            if dav1d_bitdepths.contains('8')
+                libdav1d_sources += files(
+                    'riscv/64/ipred.S',
+                )
+            endif
+
+            if dav1d_bitdepths.contains('16')
+                libdav1d_sources += files(
+                    'riscv/64/ipred16.S',
+                )
+            endif
         endif
     endif
 endif
