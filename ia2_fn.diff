@@ -1,0 +1,103 @@
+diff --git a/src/lib.c b/src/lib.c
+index 4d9a2d3..e2646a2 100644
+--- a/src/lib.c
++++ b/src/lib.c
+@@ -73,10 +73,10 @@ COLD void dav1d_default_settings(Dav1dSettings *const s) {
+     s->max_frame_delay = 0;
+     s->apply_grain = 1;
+     s->allocator.cookie = NULL;
+-    s->allocator.alloc_picture_callback = dav1d_default_picture_alloc;
+-    s->allocator.release_picture_callback = dav1d_default_picture_release;
++    s->allocator.alloc_picture_callback = IA2_FN(dav1d_default_picture_alloc);
++    s->allocator.release_picture_callback = IA2_FN(dav1d_default_picture_release);
+     s->logger.cookie = NULL;
+-    s->logger.callback = dav1d_log_default_callback;
++    s->logger.callback = IA2_FN(dav1d_log_default_callback);
+     s->operating_point = 0;
+     s->all_layers = 1; // just until the tests are adjusted
+     s->frame_size_limit = 0;
+@@ -145,9 +145,9 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
+                           s->n_threads <= DAV1D_MAX_THREADS, DAV1D_ERR(EINVAL));
+     validate_input_or_ret(s->max_frame_delay >= 0 &&
+                           s->max_frame_delay <= DAV1D_MAX_FRAME_DELAY, DAV1D_ERR(EINVAL));
+-    validate_input_or_ret(s->allocator.alloc_picture_callback != NULL,
++    validate_input_or_ret(IA2_ADDR(s->allocator.alloc_picture_callback) != NULL,
+                           DAV1D_ERR(EINVAL));
+-    validate_input_or_ret(s->allocator.release_picture_callback != NULL,
++    validate_input_or_ret(IA2_ADDR(s->allocator.release_picture_callback) != NULL,
+                           DAV1D_ERR(EINVAL));
+     validate_input_or_ret(s->operating_point >= 0 &&
+                           s->operating_point <= 31, DAV1D_ERR(EINVAL));
+@@ -187,14 +187,14 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
+         goto error;
+     }
+ 
+-    if (c->allocator.alloc_picture_callback   == dav1d_default_picture_alloc &&
+-        c->allocator.release_picture_callback == dav1d_default_picture_release)
++    if (c->allocator.alloc_picture_callback   == IA2_FN(dav1d_default_picture_alloc) &&
++        c->allocator.release_picture_callback == IA2_FN(dav1d_default_picture_release))
+     {
+         if (c->allocator.cookie) goto error;
+         if (dav1d_mem_pool_init(ALLOC_PIC, &c->picture_pool)) goto error;
+         c->allocator.cookie = c->picture_pool;
+-    } else if (c->allocator.alloc_picture_callback   == dav1d_default_picture_alloc ||
+-               c->allocator.release_picture_callback == dav1d_default_picture_release)
++    } else if (c->allocator.alloc_picture_callback   == IA2_FN(dav1d_default_picture_alloc) ||
++               c->allocator.release_picture_callback == IA2_FN(dav1d_default_picture_release))
+     {
+         goto error;
+     }
+diff --git a/tools/input/input.c b/tools/input/input.c
+index 2dfaa97..e9f5857 100644
+--- a/tools/input/input.c
++++ b/tools/input/input.c
+@@ -130,7 +130,7 @@ int input_read(DemuxerContext *const ctx, Dav1dData *const data) {
+ }
+ 
+ int input_seek(DemuxerContext *const ctx, const uint64_t pts) {
+-    return ctx->impl->seek ? IA2_CALL(ctx->impl->seek, _ZTSPFiP11DemuxerPrivmE)(ctx->data, pts) : -1;
++    return IA2_ADDR(ctx->impl->seek) ? IA2_CALL(ctx->impl->seek, _ZTSPFiP11DemuxerPrivmE)(ctx->data, pts) : -1;
+ }
+ 
+ void input_close(DemuxerContext *const ctx) {
+diff --git a/src/picture.c b/src/picture.c
+index 94365bc..fb105b3 100644
+--- a/src/picture.c
++++ b/src/picture.c
+@@ -97,7 +97,7 @@ static void free_buffer(const uint8_t *const data, void *const user_data) {
+     Dav1dMemPoolBuffer *buf = (Dav1dMemPoolBuffer *)data;
+     struct pic_ctx_context *pic_ctx = buf->data;
+ 
+-    pic_ctx->allocator.release_picture_callback(&pic_ctx->pic,
++    IA2_CALL(pic_ctx->allocator.release_picture_callback, _ZTSFvP12Dav1dPicturePvE)(&pic_ctx->pic,
+                                                 pic_ctx->allocator.cookie);
+     dav1d_mem_pool_push(user_data, buf);
+ }
+@@ -142,7 +142,7 @@ static int picture_alloc(Dav1dContext *const c,
+     p->p.layout = seq_hdr->layout;
+     p->p.bpc = bpc;
+     dav1d_data_props_set_defaults(&p->m);
+-    const int res = p_allocator->alloc_picture_callback(p, p_allocator->cookie);
++    const int res = IA2_CALL(p_allocator->alloc_picture_callback, _ZTSFiP12Dav1dPicturePvE)(p, p_allocator->cookie);
+     if (res < 0) {
+         dav1d_mem_pool_push(c->pic_ctx_pool, buf);
+         return res;
+diff --git a/src/log.c b/src/log.c
+index a08f6eb..f092312 100644
+--- a/src/log.c
++++ b/src/log.c
+@@ -46,12 +46,12 @@ COLD void dav1d_log_default_callback(void *const cookie,
+ COLD void dav1d_log(Dav1dContext *const c, const char *const format, ...) {
+     assert(c != NULL);
+ 
+-    if (!c->logger.callback)
++    if (!IA2_ADDR(c->logger.callback))
+         return;
+ 
+     va_list ap;
+     va_start(ap, format);
+-    c->logger.callback(c->logger.cookie, format, ap);
++    IA2_CALL(c->logger.callback, _ZTSFvPvPKcP13__va_list_tagE)(c->logger.cookie, format, ap);
+     va_end(ap);
+ }
+ #endif
