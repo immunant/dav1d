@@ -1552,6 +1552,9 @@ endfunc
 
 .macro def_fn_16x16 txfm1, txfm2, eob_half
 function inv_txfm_add_\txfm1\()_\txfm2\()_16x16_8bpc_rvv, export=1, ext=v
+.ifc \txfm1\()_\txfm2, dct_dct
+ beqz a3, 1f
+.endif
 .ifc \txfm1, identity
   la a6, inv_txfm_horz_identity_16x8_rvv
 .else
@@ -1561,6 +1564,75 @@ function inv_txfm_add_\txfm1\()_\txfm2\()_16x16_8bpc_rvv, export=1, ext=v
   la a5, inv_\txfm2\()_e16_x16_rvv
   li a7, \eob_half
   j inv_txfm_add_16x16_rvv
+.ifc \txfm1\()_\txfm2, dct_dct
+1:
+  csrw vxrm, zero
+  vsetivli zero, 16, e16, m2, ta, ma
+  lh t2, (a2)
+  li t3, 2896*8
+  li t4, 1<<14
+  li t5, 0xFFFF
+  li t6, -0x10000
+
+  sh x0, (a2)
+
+  mul t2, t2, t3
+  add t2, t2, t4
+  srai t2, t2, 15
+  ble t2, t5, 3f
+  mv t2, t5
+3:
+  ble t6, t2, 4f
+  mv t2, t6
+4:
+  addi t2, t2, 2
+  srai t2, t2, 2
+  mul t2, t2, t3
+  add t2, t2, t4
+  srai t2, t2, 15
+  ble t2, t5, 5f
+  mv t2, t5
+5:
+  ble t6, t2, 6f
+  mv t2, t6
+6:
+  addi t2, t2, 8
+  srai t2, t2, 4
+  vmv.v.x v24, t2
+
+  vsetvli zero, zero, e8, m1, ta, ma
+  add t2, a1, a1
+  li t3, 16
+2:
+  add t0, a0, a1
+  vle8.v v16, (a0)
+  vle8.v v17, (t0)
+
+  vwaddu.wv v0, v24, v16
+  vwaddu.wv v2, v24, v17
+
+  addi t3, t3, -2 # loop counter
+
+
+  vsetvli zero, zero, e16, m2, ta, ma
+.irp i, 0, 2
+  vmax.vx v\i, v\i, zero
+.endr
+
+  vsetvli zero, zero, e8, m1, ta, ma
+
+  vnclipu.wi  v16, v0, 0
+  vnclipu.wi  v17, v2, 0
+
+  add t0, a0, a1
+  vse8.v v16, (a0)
+  add a0, a0, t2
+  vse8.v v17, (t0)
+
+  bnez t3, 2b
+
+  ret
+.endif
 endfunc
 .endm
 
