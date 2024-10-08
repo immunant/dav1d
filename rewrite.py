@@ -10,7 +10,6 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import shlex
-import sys
 from typing import Iterable
 from plumbum import local
 
@@ -153,26 +152,32 @@ def main():
                 "macro-redefined",
             ),
         ),
-        srcs,
+        *[
+            cwd / src
+            for compartment in compartments.values()
+            for src in compartment.srcs
+        ],
     ]
 
     print(f"> {shlex.join(rewrite.formulate())}")
-    retcode, _stdout, _stderr = rewrite.run(
-        retcode=None, stdout=sys.stdout, stderr=sys.stderr
+    retcode, stdout, stderr = rewrite.run(
+        # retcode=None, stdout=sys.stdout, stderr=sys.stderr
     )
+    Path("rewrite.out").write_text(stdout)
+    Path("rewrite.err").write_text(stderr)
     if retcode != 0:
         gdb["--args", *rewrite.formulate()]()
 
     with local.cwd(ia2_cwd):
-        patch[
-            "--forward",
-            "--reject-file",
-            "-",
-            "--input",
-            cwd / "ia2_fn.diff",
-            "--strip",
-            "1",
-        ](retcode=None)
+        # patch[
+        #     "--forward",
+        #     "--reject-file",
+        #     "-",
+        #     "--input",
+        #     cwd / "ia2_fn.diff",
+        #     "--strip",
+        #     "1",
+        # ](retcode=None)
         cc[
             "-shared",
             "-fPIC",
@@ -184,10 +189,89 @@ def main():
             "libcallgates.so",
         ]()
 
+        # skip all other changes, they don't work and we don't need them
+        # keep all changes to `include/` and `tools/`, only revert some changes in `src/`
+        src = Path("src")
+        src_files_to_keep = (
+            "data.c",
+            "data.h",
+            "lib.c",
+            "log.c",
+            "obu.c",
+            "picture.c",
+            "ref.c",
+            "ref.h",
+        )
+        git["add", *(src / file for file in src_files_to_keep)]()
+        git["checkout", "--", src / "*"]()
+
+        replacements = (
+            (
+                src / "lib.c",
+                'dlsym(RTLD_DEFAULT, "__pthread_get_minstack");',
+                '(struct IA2_fnptr__ZTSFmPK14pthread_attr_tE) { .ptr = dlsym(RTLD_DEFAULT, "__pthread_get_minstack") };',
+            ),
+            (
+                src / "data.c",
+                "validate_input_or_ret(free_callback != NULL, DAV1D_ERR(EINVAL));",
+                "validate_input_or_ret(IA2_ADDR(free_callback) != NULL, DAV1D_ERR(EINVAL));",
+            ),
+            (
+                src / "lib.c",
+                "validate_input_or_ret(s->allocator.alloc_picture_callback != NULL,",
+                "validate_input_or_ret(IA2_ADDR(s->allocator.alloc_picture_callback) != NULL,",
+            ),
+            (
+                src / "lib.c",
+                "validate_input_or_ret(s->allocator.release_picture_callback != NULL,",
+                "validate_input_or_ret(IA2_ADDR(s->allocator.release_picture_callback) != NULL,",
+            ),
+            (
+                Path("tools/input/input.c"),
+                "return ctx->impl->seek ? IA2_CALL",
+                "return IA2_ADDR(ctx->impl->seek) ? IA2_CALL",
+            ),
+            (
+                Path("tools/output/output.c"),
+                "const int res = ctx->impl->verify ?",
+                "const int res = IA2_ADDR(ctx->impl->verify) ?",
+            ),
+            (
+                src / "lib.c",
+                "pthread_once(&initted, IA2_FN(init_internal));",
+                "pthread_once(&initted, init_internal);",
+            ),
+            (
+                src / "lib.c",
+                "if (pthread_create(&t->task_thread.td.thread, &thread_attr, IA2_FN(dav1d_worker_task), t)) {",
+                "if (pthread_create(&t->task_thread.td.thread, &thread_attr, dav1d_worker_task, t)) {",
+            ),
+            (
+                Path("callgate_wrapper.h"),
+                "struct __va_list_tag *",
+                "va_list",
+            ),
+            (
+                Path("tools/dav1d.c"),
+                ".sa_handler = IA2_FN(signal_handler),",
+                ".sa_handler = signal_handler,",
+            ),
+        )
+        for path, old, new in replacements:
+            old_text = path.read_text()
+            new_text = old_text.replace(old, new)
+            assert (
+                old_text != new_text
+            ), f"failed to replace `{old}` with `{new}` in `{str(path)}`"
+            path.write_text(new_text)
+
     ia2_build_dir.mkdir(exist_ok=True)
     with local.cwd(ia2_build_dir):
         meson["setup", ia2_cwd, "--reconfigure", ia2_path_arg, "-Dia2_enable=true"]()
-        ninja()
+        retcode, stdout, stderr = ninja.run(retcode=None)
+        Path("ninja.out").write_text(stdout)
+        Path("ninja.err").write_text(stderr)
+        assert retcode == 0
         canonicalize_compile_command_paths()
 
 
