@@ -272,7 +272,7 @@ cdata.set10('HAVE_C11_GENERIC', cc.compiles('int x = _Generic(0, default: 0);', 
 # Compiler flag tests
 
 if cc.has_argument('-fvisibility=hidden')
-    add_project_arguments('-fvisibility=hidden', language: 'c')
+    # add_project_arguments('-fvisibility=hidden', language: 'c')
 else
     warning('Compiler does not support -fvisibility=hidden, all symbols will be public!')
 endif
