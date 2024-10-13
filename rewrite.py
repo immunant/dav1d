@@ -72,6 +72,7 @@ def main():
         git["clone", cwd, ia2_cwd]()
 
     with local.cwd(ia2_cwd):
+        git["switch", "ia2"]()
         stashed = git["stash", "push"]().strip() != "No local changes to save"
         git["pull", "--rebase"]()
         if stashed:
