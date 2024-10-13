@@ -608,7 +608,7 @@ if ia2_path != ''
         '-Wl,-z,now',
         '-Wl,-z,relro',
         '-Wl,-T' + join_paths(ia2_path, 'runtime/libia2/padding.ld'),
-        '-L' + dav1d_src_root,
+        '-L' + join_paths(meson.project_build_root(), 'src/'),
         '-lcallgates',
     ]
     add_project_arguments(ia2_args, language: 'c')

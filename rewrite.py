@@ -186,7 +186,7 @@ def main():
             "-I",
             ia2_include,
             "-o",
-            "libcallgates.so",
+            "build/src/libcallgates.so",
         ]()
 
         # skip all other changes, they don't work and we don't need them
