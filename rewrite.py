@@ -227,16 +227,6 @@ def main():
                 "validate_input_or_ret(IA2_ADDR(s->allocator.release_picture_callback) != NULL,",
             ),
             (
-                Path("tools/input/input.c"),
-                "return ctx->impl->seek ? IA2_CALL",
-                "return IA2_ADDR(ctx->impl->seek) ? IA2_CALL",
-            ),
-            (
-                Path("tools/output/output.c"),
-                "const int res = ctx->impl->verify ?",
-                "const int res = IA2_ADDR(ctx->impl->verify) ?",
-            ),
-            (
                 src / "lib.c",
                 "pthread_once(&initted, IA2_FN(init_internal));",
                 "pthread_once(&initted, init_internal);",
