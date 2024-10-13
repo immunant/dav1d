@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import shlex
+import sys
 from typing import Iterable
 from plumbum import local
 
@@ -161,10 +162,12 @@ def main():
 
     print(f"> {shlex.join(rewrite.formulate())}")
     retcode, stdout, stderr = rewrite.run(
-        # retcode=None, stdout=sys.stdout, stderr=sys.stderr
+        # retcode=None,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
     )
-    Path("rewrite.out").write_text(stdout)
-    Path("rewrite.err").write_text(stderr)
+    # Path("rewrite.out").write_text(stdout)
+    # Path("rewrite.err").write_text(stderr)
     if retcode != 0:
         gdb["--args", *rewrite.formulate()]()
 
@@ -258,9 +261,13 @@ def main():
     ia2_build_dir.mkdir(exist_ok=True)
     with local.cwd(ia2_build_dir):
         meson["setup", ia2_cwd, "--reconfigure", ia2_path_arg, "-Dia2_enable=true"]()
-        retcode, stdout, stderr = ninja.run(retcode=None)
-        Path("ninja.out").write_text(stdout)
-        Path("ninja.err").write_text(stderr)
+        retcode, stdout, stderr = ninja.run(
+            # retcode=None,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+        # Path("ninja.out").write_text(stdout)
+        # Path("ninja.err").write_text(stderr)
         assert retcode == 0
         canonicalize_compile_command_paths()
 
