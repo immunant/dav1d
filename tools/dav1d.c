@@ -283,8 +283,9 @@ int main(const int argc, char *const *const argv) {
     signal(SIGINT,  signal_handler);
     signal(SIGTERM, signal_handler);
 #else
+    IA2_DEFINE_SIGHANDLER(signal_handler, PKEY);
     static const struct sigaction sa = {
-        .sa_handler = signal_handler,
+        .sa_handler = IA2_SIGHANDLER(signal_handler),
         .sa_flags = SA_RESETHAND,
     };
     sigaction(SIGINT,  &sa, NULL);

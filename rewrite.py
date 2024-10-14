@@ -235,11 +235,6 @@ def main():
                 "struct __va_list_tag *",
                 "va_list",
             ),
-            (
-                Path("tools/dav1d.c"),
-                ".sa_handler = IA2_FN(signal_handler),",
-                ".sa_handler = signal_handler,",
-            ),
         )
         for path, old, new in replacements:
             old_text = path.read_text()
