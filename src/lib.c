@@ -137,7 +137,7 @@ COLD int dav1d_get_frame_delay(const Dav1dSettings *const s) {
 
 COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     static pthread_once_t initted = PTHREAD_ONCE_INIT;
-    pthread_once(&initted, init_internal);
+    pthread_once(&initted, IA2_IGNORE(init_internal));
 
     validate_input_or_ret(c_out != NULL, DAV1D_ERR(EINVAL));
     validate_input_or_ret(s != NULL, DAV1D_ERR(EINVAL));
@@ -277,7 +277,7 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
                 pthread_mutex_destroy(&t->task_thread.td.lock);
                 goto error;
             }
-            if (pthread_create(&t->task_thread.td.thread, &thread_attr, dav1d_worker_task, t)) {
+            if (pthread_create(&t->task_thread.td.thread, &thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
                 pthread_cond_destroy(&t->task_thread.td.cond);
                 pthread_mutex_destroy(&t->task_thread.td.lock);
                 goto error;

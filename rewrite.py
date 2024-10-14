@@ -231,16 +231,6 @@ def main():
                 "validate_input_or_ret(IA2_ADDR(s->allocator.release_picture_callback) != NULL,",
             ),
             (
-                src / "lib.c",
-                "pthread_once(&initted, IA2_FN(init_internal));",
-                "pthread_once(&initted, init_internal);",
-            ),
-            (
-                src / "lib.c",
-                "if (pthread_create(&t->task_thread.td.thread, &thread_attr, IA2_FN(dav1d_worker_task), t)) {",
-                "if (pthread_create(&t->task_thread.td.thread, &thread_attr, dav1d_worker_task, t)) {",
-            ),
-            (
                 Path("callgate_wrapper.h"),
                 "struct __va_list_tag *",
                 "va_list",
