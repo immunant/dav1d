@@ -57,6 +57,29 @@ if ia2_path != ''
             '-Wl,--wrap=main',
             '-Wl,--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
             '-Wl,--export-dynamic',
+
+            '-lpartition-alloc',
+            '-L' + join_paths(ia2_path, 'build/runtime/partition-alloc/'),
+            '-Wl,-wrap,calloc',
+            '-Wl,-wrap,free',
+            '-Wl,-wrap,malloc',
+            '-Wl,-wrap,memalign',
+            '-Wl,-wrap,posix_memalign',
+            '-Wl,-wrap,pvalloc',
+            '-Wl,-wrap,realloc',
+            '-Wl,-wrap,valloc',
+            # Not allocating memory, but part of the API
+            '-Wl,-wrap,malloc_usable_size',
+            # <stdlib.h> functions
+            '-Wl,-wrap,realpath',
+            # <string.h> functions
+            '-Wl,-wrap,strdup',
+            '-Wl,-wrap,strndup',
+            # <unistd.h> functions
+            '-Wl,-wrap,getcwd',
+            # <stdio.h> functions
+            '-Wl,-wrap,asprintf',
+            '-Wl,-wrap,vasprintf',
         ]
     endif
 endif
