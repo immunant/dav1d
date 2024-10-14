@@ -187,11 +187,12 @@ static void signal_handler(const int s) {
     signal_terminate = 1;
 }
 
+Dav1dSettings lib_settings IA2_SHARED_DATA;
+
 int main(const int argc, char *const *const argv) {
     const int istty = isatty(fileno(stderr));
     int res = 0;
     CLISettings cli_settings;
-    Dav1dSettings lib_settings;
     DemuxerContext *in;
     MuxerContext *out = NULL;
     Dav1dPicture p;
