@@ -115,14 +115,14 @@ def main():
             text = main.read_text()
             is_binary = "int main" in text
             ia2_lines = [
-                "#ifdef IA2_ENABLE",
+                # "#ifdef IA2_ENABLE",
                 "#include <ia2.h>",
                 f"INIT_RUNTIME({len(compartments)}); // This is the number of pkeys needed."
                 if is_binary
                 else "",
                 f"#define IA2_COMPARTMENT {compartment.pkey}",
                 "#include <ia2_compartment_init.inc>",
-                "#endif",
+                # "#endif",
             ]
             ia2_header = "\n".join(line for line in ia2_lines if line)
             if not text.startswith(ia2_header):
