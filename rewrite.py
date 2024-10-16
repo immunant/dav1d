@@ -122,6 +122,7 @@ def main():
                 else "",
                 f"#define IA2_COMPARTMENT {compartment.pkey}",
                 "#include <ia2_compartment_init.inc>",
+                "#include <permissive_mode.h>" if is_binary else "",
                 # "#endif",
             ]
             ia2_header = "\n".join(line for line in ia2_lines if line)
