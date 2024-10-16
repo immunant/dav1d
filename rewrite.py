@@ -172,6 +172,8 @@ def main():
     # Path("rewrite.err").write_text(stderr)
     if retcode != 0:
         gdb["--args", *rewrite.formulate()]()
+    
+    rpath = ia2_build_dir / "src"
 
     with local.cwd(ia2_cwd):
         # patch[
@@ -191,7 +193,7 @@ def main():
             "-I",
             ia2_include,
             "-o",
-            "build/src/libcallgates.so",
+            rpath / "libcallgates.so",
         ]()
 
         # skip all other changes, they don't work and we don't need them
