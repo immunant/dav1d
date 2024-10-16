@@ -60,6 +60,12 @@ def main():
     cc = local["cc"]
     patch = local["patch"]
 
+    with local.cwd(ia2_dir / "build"):
+        ninja["rewriter"]()
+        ninja["pad-tls"]()
+        ninja["partition-alloc-padding"]()
+        ninja["libia2"]()
+
     ia2_path_arg = f"-Dia2_path={str(ia2_dir)}"
 
     build_dir.mkdir(exist_ok=True)
