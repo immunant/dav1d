@@ -255,7 +255,7 @@ def main():
 
     ia2_build_dir.mkdir(exist_ok=True)
     with local.cwd(ia2_build_dir):
-        meson["setup", ia2_cwd, "--reconfigure", ia2_path_arg, "-Dia2_enable=true"]()
+        meson["setup", ia2_cwd, "--reconfigure", ia2_path_arg, "-Dia2_enable=true", "--buildtype=debug"]()
         retcode, stdout, stderr = ninja["tools/dav1d"].run(
             # retcode=None,
             stdout=sys.stdout,
