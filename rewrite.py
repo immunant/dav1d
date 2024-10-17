@@ -4,15 +4,18 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #     "plumbum",
+#     "typer",
 # ]
 # ///
+import typer
+from typer import Option
 from dataclasses import dataclass
 import json
 from pathlib import Path
 import shlex
 import shutil
 import sys
-from typing import Generator, Iterable
+from typing import Annotated, Generator, Iterable
 from plumbum import local
 
 
@@ -56,7 +59,7 @@ def parse_ldd(ldd_output: str) -> Generator[LddPath, None, None]:
         yield LddPath(name=Path(name), path=Path(path))
 
 
-def main():
+def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = True):
     cwd = Path.cwd()
     build_dir = cwd / "build"
     ia2_dir = cwd / "../ia2"
@@ -141,15 +144,15 @@ def main():
             text = main.read_text()
             is_binary = "int main" in text
             ia2_lines = [
-                # "#ifdef IA2_ENABLE",
                 "#include <ia2.h>",
                 f"INIT_RUNTIME({len(compartments)}); // This is the number of pkeys needed."
                 if is_binary
                 else "",
                 f"#define IA2_COMPARTMENT {compartment.pkey}",
                 "#include <ia2_compartment_init.inc>",
+                "#ifdef IA2_PERMISSIVE_MODE",
                 "#include <permissive_mode.h>" if is_binary else "",
-                # "#endif",
+                "#endif",
             ]
             ia2_header = "\n".join(line for line in ia2_lines if line)
             if not text.startswith(ia2_header):
@@ -275,7 +278,15 @@ def main():
 
     ia2_build_dir.mkdir(exist_ok=True)
     with local.cwd(ia2_build_dir):
-        meson["setup", ia2_cwd, "--reconfigure", ia2_path_arg, "-Dia2_enable=true", "--buildtype=debug"]()
+        meson[
+            "setup",
+            ia2_cwd,
+            "--reconfigure",
+            ia2_path_arg,
+            "-Dia2_enable=true",
+            f"-Dia2_permissive_mode={permissive_mode}",
+            "--buildtype=debug",
+        ]()
         retcode, stdout, stderr = ninja["tools/dav1d"].run(
             # retcode=None,
             stdout=sys.stdout,
@@ -302,4 +313,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)

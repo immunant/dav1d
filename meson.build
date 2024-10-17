@@ -577,6 +577,7 @@ config_h_target = configure_file(output: 'config.h', configuration: cdata)
 # ia2
 ia2_path = get_option('ia2_path')
 ia2_enable = get_option('ia2_enable')
+ia2_permissive_mode = get_option('ia2_permissive_mode')
 if ia2_path != ''
     ia2_args = [
         '-DIA2_ENABLE=1',
@@ -589,6 +590,11 @@ if ia2_path != ''
         '-fdiagnostics-color=always',
     ]
     if ia2_enable
+        if ia2_permissive_mode
+            ia2_args += [
+                '-DIA2_PERMISSIVE_MODE=1',
+            ]
+        endif
         ia2_args += [
             '-include',
             join_paths(dav1d_src_root, 'callgate_wrapper.h'),
