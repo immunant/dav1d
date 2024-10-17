@@ -10,8 +10,9 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import shlex
+import shutil
 import sys
-from typing import Iterable
+from typing import Generator, Iterable
 from plumbum import local
 
 
@@ -39,6 +40,22 @@ def wno_args(*warnings: str) -> Iterable[str]:
     return (f"-Wno-{warning}" for warning in warnings)
 
 
+@dataclass
+class LddPath:
+    name: Path
+    path: Path
+
+
+def parse_ldd(ldd_output: str) -> Generator[LddPath, None, None]:
+    for line in ldd_output.strip().split("\n"):
+        parts = line.strip().split(" => ", 1)
+        if len(parts) != 2:
+            continue
+        name, rest = parts
+        path, rest = rest.rsplit(" (")
+        yield LddPath(name=Path(name), path=Path(path))
+
+
 def main():
     cwd = Path.cwd()
     build_dir = cwd / "build"
@@ -56,9 +73,12 @@ def main():
     git = local["git"]
     llvm_config = local["llvm-config"]
     ia2_rewriter = local[ia2_dir / "build/tools/rewriter/ia2-rewriter"]
+    pad_tls = local[ia2_dir / "build/tools/pad-tls/pad-tls"]
+    partition_alloc = ia2_dir / "build/runtime/partition-alloc/libpartition-alloc.so"
     gdb = local["gdb"]
     cc = local["cc"]
     patch = local["patch"]
+    ldd = local["ldd"]
 
     with local.cwd(ia2_dir / "build"):
         ninja["rewriter"]()
@@ -265,6 +285,20 @@ def main():
         # Path("ninja.err").write_text(stderr)
         assert retcode == 0
         canonicalize_compile_command_paths()
+
+    dav1d = ia2_build_dir / "tools/dav1d"
+    pad_tls[dav1d]()
+
+    for ldd in parse_ldd(ldd[dav1d]()):
+        padded = rpath / ldd.name
+        if padded.exists() and ldd.path.samefile(padded):
+            continue
+        shutil.copy(ldd.path, padded)
+        retcode, stdout, stderr = pad_tls[padded].run(retcode=None)
+        if retcode != 0 and "no TLS segment in ELF program headers" in stderr:
+            continue
+        if retcode != 0:
+            pad_tls[padded]()
 
 
 if __name__ == "__main__":

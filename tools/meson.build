@@ -59,7 +59,7 @@ if ia2_path != ''
             '-Wl,--export-dynamic',
 
             '-lpartition-alloc',
-            '-L' + join_paths(ia2_path, 'build/runtime/partition-alloc/'),
+            '-Lsrc/',
             '-Wl,-wrap,calloc',
             '-Wl,-wrap,free',
             '-Wl,-wrap,malloc',
