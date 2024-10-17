@@ -305,11 +305,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
         if padded.exists() and ldd.path.samefile(padded):
             continue
         shutil.copy(ldd.path, padded)
-        retcode, stdout, stderr = pad_tls[padded].run(retcode=None)
-        if retcode != 0 and "no TLS segment in ELF program headers" in stderr:
-            continue
-        if retcode != 0:
-            pad_tls[padded]()
+        pad_tls["--allow-no-tls", padded]()
 
 
 if __name__ == "__main__":
