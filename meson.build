@@ -587,6 +587,7 @@ if ia2_path != ''
         '-std=gnu99',
         '-Wno-strict-prototypes',
         '-Wno-missing-prototypes',
+        '-Wno-unused-function',
         # convenience
         '-fdiagnostics-color=always',
     ]
