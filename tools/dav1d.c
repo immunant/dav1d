@@ -190,6 +190,7 @@ static void signal_handler(const int s) {
 Dav1dSettings lib_settings IA2_SHARED_DATA;
 Dav1dData data IA2_SHARED_DATA;
 Dav1dContext *c IA2_SHARED_DATA;
+Dav1dPicture p IA2_SHARED_DATA;
 
 int main(const int argc, char *const *const argv) {
     const int istty = isatty(fileno(stderr));
@@ -197,7 +198,6 @@ int main(const int argc, char *const *const argv) {
     CLISettings cli_settings;
     DemuxerContext *in;
     MuxerContext *out = NULL;
-    Dav1dPicture p;
     unsigned n_out = 0, total, fps[2], timebase[2];
     uint64_t nspf, tfirst, elapsed;
     double i_fps;
