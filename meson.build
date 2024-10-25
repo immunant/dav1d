@@ -601,11 +601,6 @@ if ia2_path != ''
             '-Werror=incompatible-pointer-types',
         ]
     endif
-    ia2_dso_args = [
-        # '-fPIC',
-        # '-pthread',
-        # join_paths(ia2_path, 'build/runtime/libia2/liblibia2.a'),
-    ]
     ia2_dso_link_args = [
         '-fPIC',
         '-pthread',

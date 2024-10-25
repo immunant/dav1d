@@ -319,9 +319,6 @@ pkey = 2
 link_args = []
 
 if ia2_path != ''
-    if ia2_enable
-        libdav1d_flags += ia2_dso_args
-    endif
     libdav1d_flags += [
         f'-DPKEY=@pkey@',
     ]

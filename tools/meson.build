@@ -45,9 +45,6 @@ c_args = []
 link_args = []
 
 if ia2_path != ''
-    if ia2_enable
-        c_args += ia2_dso_args
-    endif
     c_args += [
         f'-DPKEY=@pkey@',
     ]
