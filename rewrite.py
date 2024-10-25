@@ -19,14 +19,6 @@ from typing import Annotated, Generator, Iterable
 from plumbum import local
 
 
-@dataclass
-class Compartment:
-    pkey: int
-    name: str
-    srcs: list[Path]
-    main: Path
-
-
 def extra_args(*args: str | Path) -> Iterable[str | Path]:
     return (x for arg in args for x in ["--extra-arg", arg])
 
@@ -108,31 +100,9 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
     llvm_libdir = Path(llvm_config["--libdir"]().strip())
     assert llvm_libdir.is_dir()
 
-    pkeys = {
-        # 0 is the untrusted/shared compartment
-        "src": (2, "lib.c"),
-        "tools": (1, "dav1d.c"),  # main compartment has to be 1
-    }
-
     cc_text = cc_db.read_text()
     cmds = json.loads(cc_text)
     srcs = [Path(cmd["file"]).relative_to(cwd) for cmd in cmds]
-
-    compartments: dict[int, Compartment] = {}
-    for src_path in srcs:
-        name = src_path.parts[0]
-        if name not in pkeys:
-            continue
-        pkey, main_file = pkeys[name]
-        if pkey not in compartments:
-            compartments[pkey] = Compartment(
-                pkey=pkey,
-                name=name,
-                srcs=[],
-                main=Path(name) / main_file,
-            )
-        compartment = compartments[pkey]
-        compartment.srcs.append(src_path)
 
     rewrite = ia2_rewriter[
         "--output-prefix",
@@ -156,11 +126,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
                 "macro-redefined",
             ),
         ),
-        *[
-            cwd / src
-            for compartment in compartments.values()
-            for src in compartment.srcs
-        ],
+        *[cwd / src for src in srcs if src.parts[0] in {"src", "tools"}],
     ]
 
     print(f"> {shlex.join(rewrite.formulate())}")
@@ -173,7 +139,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
     # Path("rewrite.err").write_text(stderr)
     if retcode != 0:
         gdb["--args", *rewrite.formulate()]()
-    
+
     rpath = ia2_build_dir / "src"
 
     with local.cwd(ia2_cwd):
