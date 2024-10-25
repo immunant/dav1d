@@ -112,7 +112,6 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
         # 0 is the untrusted/shared compartment
         "src": (2, "lib.c"),
         "tools": (1, "dav1d.c"),  # main compartment has to be 1
-        # "tests": (1, "seek_stress.c"),
     }
 
     cc_text = cc_db.read_text()
