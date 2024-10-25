@@ -170,10 +170,6 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
             "include-fixed",
             "-isystem",
             llvm_libdir / "clang/18/include",
-            # *define_args(IA2_ENABLE=1, PKEY=compartment.pkey),
-            # *include_args(ia2_include),
-            # "-std=gnu99",  # need this for ia2 include
-            # "-Wno-error=missing-prototypes",  # ia2 include needs this
             *wno_args(
                 "missing-prototypes",
                 "undef",
