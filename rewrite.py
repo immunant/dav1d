@@ -80,7 +80,6 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
     partition_alloc = ia2_dir / "build/runtime/partition-alloc/libpartition-alloc.so"
     gdb = local["gdb"]
     cc = local["cc"]
-    patch = local["patch"]
     ldd = local["ldd"]
 
     with local.cwd(ia2_dir / "build"):
@@ -205,15 +204,6 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
     rpath = ia2_build_dir / "src"
 
     with local.cwd(ia2_cwd):
-        # patch[
-        #     "--forward",
-        #     "--reject-file",
-        #     "-",
-        #     "--input",
-        #     cwd / "ia2_fn.diff",
-        #     "--strip",
-        #     "1",
-        # ](retcode=None)
         cc[
             "-shared",
             "-fPIC",
