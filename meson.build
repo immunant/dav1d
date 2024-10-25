@@ -588,8 +588,6 @@ if ia2_path != ''
         '-Wno-strict-prototypes',
         '-Wno-missing-prototypes',
         '-Wno-unused-function',
-        # convenience
-        '-fdiagnostics-color=always',
     ]
     if ia2_enable
         if ia2_permissive_mode

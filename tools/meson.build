@@ -123,6 +123,7 @@ if not get_option('enable_tools')
     subdir_done()
 endif
 
+
 #
 # Build definition for the dav1d tools
 #

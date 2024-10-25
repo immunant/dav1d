@@ -332,8 +332,6 @@ if ia2_path != ''
     endif
 endif
 
-warning(libdav1d_flags)
-
 # Helper library for each bitdepth
 libdav1d_bitdepth_objs = []
 foreach bitdepth : dav1d_bitdepths
