@@ -77,7 +77,6 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
     llvm_config = local["llvm-config"]
     ia2_rewriter = local[ia2_dir / "build/tools/rewriter/ia2-rewriter"]
     pad_tls = local[ia2_dir / "build/tools/pad-tls/pad-tls"]
-    partition_alloc = ia2_dir / "build/runtime/partition-alloc/libpartition-alloc.so"
     gdb = local["gdb"]
     cc = local["cc"]
     ldd = local["ldd"]
