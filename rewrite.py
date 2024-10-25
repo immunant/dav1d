@@ -134,27 +134,6 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
         compartment = compartments[pkey]
         compartment.srcs.append(src_path)
 
-    for compartment in compartments.values():
-        assert compartment.main in compartment.srcs
-
-        for main in (cwd / compartment.main, ia2_cwd / compartment.main):
-            text = main.read_text()
-            is_binary = "int main" in text
-            ia2_lines = [
-                "#include <ia2.h>",
-                f"INIT_RUNTIME({len(compartments)}); // This is the number of pkeys needed."
-                if is_binary
-                else "",
-                f"#define IA2_COMPARTMENT {compartment.pkey}",
-                "#include <ia2_compartment_init.inc>",
-                "#ifdef IA2_PERMISSIVE_MODE",
-                "#include <permissive_mode.h>" if is_binary else "",
-                "#endif",
-            ]
-            ia2_header = "\n".join(line for line in ia2_lines if line)
-            if not text.startswith(ia2_header):
-                main.write_text(ia2_header + "\n\n" + text)
-
     rewrite = ia2_rewriter[
         "--output-prefix",
         ia2_cwd / "callgate_wrapper",

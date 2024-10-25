@@ -1,3 +1,11 @@
+#include <ia2.h>
+INIT_RUNTIME(2); // This is the number of pkeys needed.
+#define IA2_COMPARTMENT 1 // main compartment (compartment with `int main`) must be 1
+#include <ia2_compartment_init.inc>
+#ifdef IA2_PERMISSIVE_MODE
+#include <permissive_mode.h>
+#endif
+
 /*
  * Copyright © 2018, VideoLAN and dav1d authors
  * Copyright © 2018, Two Orioles, LLC

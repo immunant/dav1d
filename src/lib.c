@@ -1,3 +1,7 @@
+#include <ia2.h>
+#define IA2_COMPARTMENT 2
+#include <ia2_compartment_init.inc>
+
 /*
  * Copyright © 2018, VideoLAN and dav1d authors
  * Copyright © 2018, Two Orioles, LLC
