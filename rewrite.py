@@ -15,7 +15,7 @@ from pathlib import Path
 import shlex
 import shutil
 import sys
-from typing import Annotated, Generator, Iterable
+from typing import Annotated, Any, Generator, Iterable, Sequence
 from plumbum import local
 
 
@@ -49,6 +49,19 @@ def parse_ldd(ldd_output: str) -> Generator[LddPath, None, None]:
         name, rest = parts
         path, rest = rest.rsplit(" (")
         yield LddPath(name=Path(name), path=Path(path))
+
+
+def filter_srcs(srcs: Sequence[Path]) -> Generator[Path, Any, Any]:
+    for src in srcs:
+        if src.name.endswith("_tmpl.c"):
+            continue
+        if src.suffix == ".h":
+            tmpl_path = src.parent / (src.name.removesuffix(".h") + "_tmpl.c")
+            if tmpl_path.exists():
+                continue
+        if src.name in {"msac.h", "msac.c"}:
+            continue
+        yield src
 
 
 def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = True):
@@ -102,7 +115,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
 
     cc_text = cc_db.read_text()
     cmds = json.loads(cc_text)
-    srcs = [Path(cmd["file"]).relative_to(cwd) for cmd in cmds]
+    srcs = filter_srcs(Path(cmd["file"]).relative_to(cwd) for cmd in cmds)
 
     rewrite = ia2_rewriter[
         "--output-prefix",
