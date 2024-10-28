@@ -23,18 +23,6 @@ def extra_args(*args: str | Path) -> Iterable[str | Path]:
     return (x for arg in args for x in ["--extra-arg", arg])
 
 
-def define_args(**defines: str | int | bool) -> Iterable[str]:
-    return (f"-D{key}={str(value)}" for key, value in defines.items())
-
-
-def include_args(*includes: str | Path) -> Iterable[str]:
-    return (x for include in includes for x in ["-I", include])
-
-
-def wno_args(*warnings: str) -> Iterable[str]:
-    return (f"-Wno-{warning}" for warning in warnings)
-
-
 @dataclass
 class LddPath:
     name: Path
