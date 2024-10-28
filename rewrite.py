@@ -118,13 +118,6 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
             "include-fixed",
             "-isystem",
             llvm_libdir / "clang/18/include",
-            *wno_args(
-                "missing-prototypes",
-                "undef",
-                "strict-prototypes",
-                "unknown-warning-option",
-                "macro-redefined",
-            ),
         ),
         *[cwd / src for src in srcs if src.parts[0] in {"src", "tools"}],
     ]

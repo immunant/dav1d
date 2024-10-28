@@ -588,6 +588,7 @@ if ia2_path != ''
         '-Wno-strict-prototypes',
         '-Wno-missing-prototypes',
         '-Wno-unused-function',
+        '-Wno-unknown-warning-option',
     ]
     if ia2_enable
         if ia2_permissive_mode
