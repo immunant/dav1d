@@ -195,6 +195,8 @@ static void signal_handler(const int s) {
     signal_terminate = 1;
 }
 
+IA2_DEFINE_SIGHANDLER(signal_handler, PKEY);
+
 Dav1dSettings lib_settings IA2_SHARED_DATA;
 Dav1dData data IA2_SHARED_DATA;
 Dav1dContext *c IA2_SHARED_DATA;
@@ -292,13 +294,12 @@ int main(const int argc, char *const *const argv) {
     signal(SIGINT,  signal_handler);
     signal(SIGTERM, signal_handler);
 #else
-    // IA2_DEFINE_SIGHANDLER(signal_handler, PKEY);
-    // static const struct sigaction sa = {
-    //     .sa_handler = IA2_SIGHANDLER(signal_handler),
-    //     .sa_flags = SA_RESETHAND,
-    // };
-    // sigaction(SIGINT,  &sa, NULL);
-    // sigaction(SIGTERM, &sa, NULL);
+    static const struct sigaction sa = {
+        .sa_handler = IA2_SIGHANDLER(signal_handler),
+        .sa_flags = SA_RESETHAND,
+    };
+    sigaction(SIGINT,  &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
 #endif
 
     do {
