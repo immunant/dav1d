@@ -475,8 +475,13 @@ int dav1d_get_picture(Dav1dContext *const c, Dav1dPicture *const out)
         return res;
     }
 
-    if (output_picture_ready(c, c->n_fc == 1))
-        return output_image(c, out);
+    if (output_picture_ready(c, c->n_fc == 1)) {
+        res = output_image(c, out);
+        out->stride[0] *= -1;
+        // out->p.w += 5000;
+        // out->p.h += 5000;
+        return res;
+    }
 
     if (c->n_fc > 1 && drain)
         return drain_picture(c, out);
