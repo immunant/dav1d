@@ -580,7 +580,6 @@ ia2_enable = get_option('ia2_enable')
 ia2_permissive_mode = get_option('ia2_permissive_mode')
 if ia2_path != ''
     ia2_args = [
-        '-DIA2_ENABLE=1',
         '-DIA2_DEBUG=1',
         '-DIA2_DEBUG_LOG=1',
         '-I' + join_paths(ia2_path, 'runtime/libia2/include'),
@@ -592,6 +591,9 @@ if ia2_path != ''
         '-Wno-unknown-warning-option',
     ]
     if ia2_enable
+        ia2_args += [
+            '-DIA2_ENABLE=1',
+        ]
         if ia2_permissive_mode
             ia2_args += [
                 '-DIA2_PERMISSIVE_MODE=1',
@@ -601,6 +603,10 @@ if ia2_path != ''
             '-include',
             join_paths(dav1d_src_root, 'callgate_wrapper.h'),
             '-Werror=incompatible-pointer-types',
+        ]
+    else
+        ia2_args += [
+            '-DIA2_ENABLE=0',
         ]
     endif
     ia2_dso_link_args = [
