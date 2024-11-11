@@ -44,7 +44,7 @@ uint64_t dav1d_cpu_xgetbv(unsigned xcr);
 
 #define X(reg, mask) (((reg) & (mask)) == (mask))
 
-COLD unsigned dav1d_get_cpu_flags_x86(void) {
+DAV1D_API COLD unsigned dav1d_get_cpu_flags_x86(void) {
     union {
         CpuidRegisters r;
         struct {

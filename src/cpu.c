@@ -55,7 +55,7 @@
 unsigned dav1d_cpu_flags = 0U;
 unsigned dav1d_cpu_flags_mask = ~0U;
 
-COLD void dav1d_init_cpu(void) {
+DAV1D_API void dav1d_init_cpu(void) {
 #if HAVE_ASM && !__has_feature(memory_sanitizer)
 // memory sanitizer is inherently incompatible with asm
 #if ARCH_AARCH64 || ARCH_ARM
@@ -76,7 +76,7 @@ COLD void dav1d_set_cpu_flags_mask(const unsigned mask) {
     dav1d_cpu_flags_mask = mask;
 }
 
-COLD int dav1d_num_logical_processors(Dav1dContext *const c) {
+DAV1D_API COLD int dav1d_num_logical_processors(Dav1dContext *const c) {
 #ifdef _WIN32
 #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
     GROUP_AFFINITY affinity;
