@@ -489,6 +489,11 @@ int dav1d_get_picture(Dav1dContext *const c, Dav1dPicture *const out)
     return DAV1D_ERR(EAGAIN);
 }
 
+DAV1D_API void dav1d_get_picture_post_condition(Dav1dContext *const c, Dav1dPicture *const out) {
+    assert(out->stride[0] > 0);
+    assert(out->stride[1] > 0);
+}
+
 int dav1d_apply_grain(Dav1dContext *const c, Dav1dPicture *const out,
                       const Dav1dPicture *const in)
 {
