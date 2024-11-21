@@ -52,7 +52,7 @@ def filter_srcs(srcs: Sequence[Path]) -> Generator[Path, Any, Any]:
         yield src
 
 
-def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = True):
+def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False):
     cwd = Path.cwd()
     build_dir = cwd / "build"
     ia2_dir = cwd / "../ia2"
