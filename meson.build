@@ -585,7 +585,6 @@ if ia2_path != ''
         '-I' + join_paths(ia2_path, 'runtime/libia2/include'),
         # overrides
         '-std=gnu99',
-        '-Wno-strict-prototypes',
         '-Wno-missing-prototypes',
         '-Wno-unused-function',
         '-Wno-unknown-warning-option',
