@@ -17,6 +17,7 @@ import shutil
 import sys
 from typing import Annotated, Any, Generator, Iterable, Sequence
 from plumbum import local
+from plumbum.machines import LocalCommand
 
 
 def extra_args(*args: str | Path) -> Iterable[str | Path]:
@@ -50,6 +51,19 @@ def filter_srcs(srcs: Sequence[Path]) -> Generator[Path, Any, Any]:
         if src.name in {"msac.h", "msac.c"}:
             continue
         yield src
+
+
+def find_clang_include_dir(llvm_config: LocalCommand) -> Path:
+    llvm_libdir = Path(llvm_config["--libdir"]().strip())
+    llvm_libdir_clang = llvm_libdir / "clang"
+
+    for clang_dir in llvm_libdir_clang.iterdir():
+        clang_include_dir = clang_dir / "include"
+        if clang_include_dir.is_dir():
+            return clang_include_dir
+    raise FileNotFoundError(
+        f'"$({llvm_config} --libdir)/clang/*/include" does not exist'
+    )
 
 
 def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False):
@@ -98,8 +112,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
         if stashed:
             git["stash", "pop"]()
 
-    llvm_libdir = Path(llvm_config["--libdir"]().strip())
-    assert llvm_libdir.is_dir()
+    clang_include_dir = find_clang_include_dir(llvm_config)
 
     cc_text = cc_db.read_text()
     cmds = json.loads(cc_text)
@@ -118,7 +131,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
             "-isystem",
             "include-fixed",
             "-isystem",
-            llvm_libdir / "clang/18/include",
+            clang_include_dir,
         ),
         *[cwd / src for src in srcs if src.parts[0] in {"src", "tools"}],
     ]
