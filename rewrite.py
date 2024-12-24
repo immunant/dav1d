@@ -118,6 +118,11 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
     cmds = json.loads(cc_text)
     srcs = filter_srcs(Path(cmd["file"]).relative_to(cwd) for cmd in cmds)
 
+    srcs_to_rewrite = [
+        cwd / src
+        for src in srcs
+        if src.parts[0] in {"src", "tools"} and src.suffix == ".c"
+    ]
     rewrite = ia2_rewriter[
         "--output-prefix",
         ia2_cwd / "callgate_wrapper",
@@ -133,7 +138,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
             "-isystem",
             clang_include_dir,
         ),
-        *[cwd / src for src in srcs if src.parts[0] in {"src", "tools"}],
+        *srcs_to_rewrite,
     ]
 
     print(f"> {shlex.join(rewrite.formulate())}")
