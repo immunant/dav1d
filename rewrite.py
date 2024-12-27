@@ -66,7 +66,12 @@ def find_clang_include_dir(llvm_config: LocalCommand) -> Path:
     )
 
 
-def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False):
+def main(
+    permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False,
+    target: Annotated[str, Option(help="target triple")] = "x86_64-linux-gnu",
+):
+    target_arch = target.split("-")[0]
+
     cwd = Path.cwd()
     build_dir = cwd / "build"
     ia2_dir = cwd / "../ia2"
@@ -124,6 +129,8 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
         if src.parts[0] in {"src", "tools"} and src.suffix == ".c"
     ]
     rewrite = ia2_rewriter[
+        "--arch",
+        target_arch,
         "--output-prefix",
         ia2_cwd / "callgate_wrapper",
         "--root-directory",
@@ -156,6 +163,8 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
 
     with local.cwd(ia2_cwd):
         clang[
+            "-target",
+            target,
             "-shared",
             "-fPIC",
             "-Wl,-z,now",
@@ -205,7 +214,10 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
             ),
             (
                 Path("callgate_wrapper.h"),
-                "struct __va_list_tag *",
+                {
+                    "x86_64": "struct __va_list_tag *",
+                    "aarch64": "struct __va_list",
+                }[target_arch],
                 "va_list",
             ),
         )
