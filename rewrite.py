@@ -117,6 +117,8 @@ def main(
         qemu_ld_prefix.iterdir()  # check it exists
         local.env["QEMU_LD_PREFIX"] = qemu_ld_prefix
 
+    shutil.rmtree(build_dir)
+    build_dir.mkdir()
     with local.cwd(build_dir):
         meson["setup", cwd, "--reconfigure", ia2_path_arg, *cross_args]()
         ninja["include/vcs_version.h"]()
@@ -244,6 +246,8 @@ def main(
             ), f"failed to replace `{old}` with `{new}` in `{str(path)}`"
             path.write_text(new_text)
 
+    shutil.rmtree(ia2_build_dir)
+    ia2_build_dir.mkdir()
     with local.cwd(ia2_build_dir):
         meson[
             "setup",
