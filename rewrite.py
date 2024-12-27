@@ -5,6 +5,7 @@
 # dependencies = [
 #     "plumbum",
 #     "typer",
+#     "meson",
 # ]
 # ///
 import typer
@@ -18,6 +19,7 @@ import sys
 from typing import Annotated, Any, Generator, Iterable, Sequence
 from plumbum import local
 from plumbum.machines import LocalCommand
+from mesonbuild.machinefile import parse_machine_files
 
 
 def extra_args(*args: str | Path) -> Iterable[str | Path]:
@@ -69,6 +71,10 @@ def find_clang_include_dir(llvm_config: LocalCommand) -> Path:
 def main(
     permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False,
     target: Annotated[str, Option(help="target triple")] = "x86_64-linux-gnu",
+    cross: Annotated[
+        str | None,
+        Option(help="meson cross file target in packages/crossfiles/*.meson"),
+    ] = None,
 ):
     target_arch = target.split("-")[0]
 
@@ -101,9 +107,18 @@ def main(
 
     ia2_path_arg = f"-Dia2_path={str(ia2_dir)}"
 
-    build_dir.mkdir(exist_ok=True)
+    cross_args = []
+    if cross is not None:
+        cross_file = cwd / "package" / "crossfiles" / f"{cross}.meson"
+        cross = parse_machine_files(filenames=[str(cross_file)], sourcedir=str(cwd))
+        print(cross)
+        cross_args = ["--cross-file", cross_file]
+        qemu_ld_prefix = Path("/usr") / target
+        qemu_ld_prefix.iterdir()  # check it exists
+        local.env["QEMU_LD_PREFIX"] = qemu_ld_prefix
+
     with local.cwd(build_dir):
-        meson["setup", cwd, "--reconfigure", ia2_path_arg]()
+        meson["setup", cwd, "--reconfigure", ia2_path_arg, *cross_args]()
         ninja["include/vcs_version.h"]()
         canonicalize_compile_command_paths()
 
@@ -229,13 +244,13 @@ def main(
             ), f"failed to replace `{old}` with `{new}` in `{str(path)}`"
             path.write_text(new_text)
 
-    ia2_build_dir.mkdir(exist_ok=True)
     with local.cwd(ia2_build_dir):
         meson[
             "setup",
             ia2_cwd,
             "--reconfigure",
             ia2_path_arg,
+            *cross_args,
             "-Dia2_enable=true",
             f"-Dia2_permissive_mode={permissive_mode}",
             "--buildtype=debug",
