@@ -85,7 +85,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
     ia2_rewriter = local[ia2_dir / "build/tools/rewriter/ia2-rewriter"]
     pad_tls = local[ia2_dir / "build/tools/pad-tls/pad-tls"]
     gdb = local["gdb"]
-    cc = local["cc"]
+    clang = local["clang"]
     ldd = local["ldd"]
 
     with local.cwd(ia2_dir / "build"):
@@ -155,7 +155,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
     rpath = ia2_build_dir / "src"
 
     with local.cwd(ia2_cwd):
-        cc[
+        clang[
             "-shared",
             "-fPIC",
             "-Wl,-z,now",
