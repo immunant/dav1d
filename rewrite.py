@@ -147,7 +147,10 @@ def main(
     ]
     rewrite = ia2_rewriter[
         "--arch",
-        target_arch,
+        {
+            "x86_64": "x86",
+            "aarch64": "aarch64",
+        }[target_arch],
         "--output-prefix",
         ia2_cwd / "callgate_wrapper",
         "--root-directory",
