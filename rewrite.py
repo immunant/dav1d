@@ -159,7 +159,7 @@ def main(permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = 
             "-shared",
             "-fPIC",
             "-Wl,-z,now",
-            "callgate_wrapper.c",
+            ia2_cwd / "callgate_wrapper.c",
             "-I",
             ia2_include,
             "-o",
