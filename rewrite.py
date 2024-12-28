@@ -159,6 +159,12 @@ def main(
             f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
             "-DCMAKE_C_COMPILER=clang",
             "-DCMAKE_CXX_COMPILER=clang++",
+            *{
+                TargetArch.X86_64: [],
+                TargetArch.AArch64: [
+                    f"-DCMAKE_TOOLCHAIN_FILE={str(ia2_dir / "cmake/aarch64-toolchain.cmake")}"
+                ],
+            }[target_arch],
             f"-DCMAKE_BUILD_TYPE={ia2_cmake_build_type.value}",
             f"-DIA2_DEBUG_LOG={ia2_debug_log}",
         ]()
