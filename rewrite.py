@@ -96,7 +96,7 @@ def main(
     target_arch: Annotated[TargetArch, Option(help="target arch")] = TargetArch.X86_64,
     enable_dav1d_get_picture_post_condition: Annotated[
         bool, Option(help="enable the dav1d_get_picture post condition function")
-    ] = False,
+    ] = True,
     ia2_cmake_build_type: Annotated[
         CMakeBuildType, Option(help="IA2's CMAKE_BUILD_TYPE")
     ] = CMakeBuildType.Debug,
