@@ -38,6 +38,8 @@ def parse_ldd(ldd_output: str) -> Generator[LddPath, None, None]:
         if len(parts) != 2:
             continue
         name, rest = parts
+        if rest == "not found":
+            raise FileNotFoundError(name)
         path, rest = rest.rsplit(" (")
         yield LddPath(name=Path(name), path=Path(path))
 
