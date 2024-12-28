@@ -76,12 +76,22 @@ class TargetArch(str, Enum):
     AArch64 = "aarch64"
 
 
+class CMakeBuildType(str, Enum):
+    Debug = "Debug"
+    Release = "Release"
+    RelWithDebInfo = "RelWithDebInfo"
+    MinSizeRel = "MinSizeRel"
+
+
 def main(
     permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False,
     target_arch: Annotated[TargetArch, Option(help="target arch")] = TargetArch.X86_64,
     enable_dav1d_get_picture_post_condition: Annotated[
         bool, Option(help="enable the dav1d_get_picture post condition function")
     ] = False,
+    ia2_cmake_build_type: Annotated[
+        CMakeBuildType, Option(help="IA2's CMAKE_BUILD_TYPE")
+    ] = CMakeBuildType.Debug,
 ):
     llvm_target = {
         TargetArch.X86_64: "x86_64-unknown-linux-gnu",
@@ -137,7 +147,7 @@ def main(
             f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
             "-DCMAKE_C_COMPILER=clang",
             "-DCMAKE_CXX_COMPILER=clang++",
-            "-DCMAKE_BUILD_TYPE=Debug",
+            f"-DCMAKE_BUILD_TYPE={ia2_cmake_build_type.value}",
             "-DIA2_DEBUG_LOG=True",
         ]()
         ninja["rewriter"]()
