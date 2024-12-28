@@ -50,13 +50,13 @@ if ia2_path != ''
     ]
     if ia2_enable
         link_args += [
-            f'-Wl,@../callgate_wrapper_@pkey@.ld',
+            '-Wl,@' + join_paths(dav1d_src_root, f'callgate_wrapper_@pkey@.ld'),
             '-Wl,--wrap=main',
             '-Wl,--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
             '-Wl,--export-dynamic',
 
             '-lpartition-alloc',
-            '-Lsrc/',
+            '-L' + join_paths(ia2_build_path, 'runtime/partition-alloc/'),
             '-Wl,-wrap,calloc',
             '-Wl,-wrap,free',
             '-Wl,-wrap,malloc',

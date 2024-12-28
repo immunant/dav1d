@@ -324,7 +324,7 @@ if ia2_path != ''
     ]
     if ia2_enable
         link_args += [
-            f'-Wl,@../callgate_wrapper_@pkey@.ld',
+            '-Wl,@' + join_paths(dav1d_src_root, f'callgate_wrapper_@pkey@.ld'),
         ]
     endif
 endif

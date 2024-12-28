@@ -79,6 +79,11 @@ option('ia2_path',
     value: '',
     description: 'The path to the IA2 repo')
 
+option('ia2_build_path',
+    type: 'string',
+    value: '',
+    description: 'The path to the IA2 repo\'s build directory')
+
 option('ia2_enable',
     type: 'boolean',
     value: false,

@@ -576,6 +576,7 @@ config_h_target = configure_file(output: 'config.h', configuration: cdata)
 
 # ia2
 ia2_path = get_option('ia2_path')
+ia2_build_path = get_option('ia2_build_path')
 ia2_enable = get_option('ia2_enable')
 ia2_permissive_mode = get_option('ia2_permissive_mode')
 if ia2_path != ''
@@ -609,10 +610,11 @@ if ia2_path != ''
             '-DIA2_ENABLE=0',
         ]
     endif
+    assert(ia2_build_path != '')
     ia2_dso_link_args = [
         '-fPIC',
         '-pthread',
-        join_paths(ia2_path, 'build/runtime/libia2/liblibia2.a'),
+        join_paths(ia2_build_path, 'runtime/libia2/liblibia2.a'),
         '-Wl,--wrap=pthread_create',
         '-Wl,-z,now',
         '-Wl,-z,relro',

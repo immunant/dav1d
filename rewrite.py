@@ -72,57 +72,91 @@ def find_clang_include_dir(llvm_config: LocalCommand) -> Path:
 
 def main(
     permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False,
-    target: Annotated[str, Option(help="target triple")] = "x86_64-linux-gnu",
-    cross: Annotated[
-        str | None,
-        Option(help="meson cross file target in packages/crossfiles/*.meson"),
-    ] = None,
+    target_arch: Annotated[str, Option(help="target arch")] = "x86_64",
 ):
-    target_arch = target.split("-")[0]
+    llvm_target = {
+        "x86_64": "x86_64-unknown-linux-gnu",
+        "aarch64": "aarch64-unknown-linux-gnu",
+    }[target_arch]
+    cross_target = {
+        "x86_64": None,
+        "aarch64": "aarch64-linux-clang",
+    }[target_arch]
+    qemu_target = {
+        "x86_64": "x86_64-linux-gnu",
+        "aarch64": "aarch64-linux-gnu",
+    }[target_arch]
+    ia2_target_arch = {
+        "x86_64": "x86",
+        "aarch64": "aarch64",
+    }[target_arch]
+
+    build_dir_name = f"build/{target_arch}"
 
     cwd = Path.cwd()
-    build_dir = cwd / "build"
+    build_dir = cwd / build_dir_name
     ia2_dir = cwd / "../ia2"
     ia2_include = ia2_dir / "runtime/libia2/include/"
     ia2_cwd = cwd / ".." / f"{cwd.name}-ia2"
-    ia2_build_dir = ia2_cwd / "build"
+    ia2_build_dir = ia2_cwd / build_dir_name
     cc_db = build_dir / "compile_commands.json"
 
     meson = local["meson"]
     ninja = local["ninja"]
-    canonicalize_compile_command_paths = local[
-        ia2_dir / "tools/rewriter/canonicalize_compile_command_paths.py"
-    ]
     git = local["git"]
     llvm_config = local["llvm-config"]
-    ia2_rewriter = local[ia2_dir / "build/tools/rewriter/ia2-rewriter"]
-    pad_tls = local[ia2_dir / "build/tools/pad-tls/pad-tls"]
     gdb = local["gdb"]
     clang = local["clang"]
     ldd = local["ldd"]
+    cmake = local["cmake"]
+    lit = local["lit"]
 
-    with local.cwd(ia2_dir / "build"):
+    canonicalize_compile_command_paths = local[
+        ia2_dir / "tools/rewriter/canonicalize_compile_command_paths.py"
+    ]
+
+    llvm_cmake_dir = Path(llvm_config["--cmakedir"]().strip())
+
+    (ia2_dir / build_dir_name).mkdir(exist_ok=True, parents=True)
+    with local.cwd(ia2_dir / build_dir_name):
+        cmake[
+            ia2_dir,
+            "-G",
+            "Ninja",
+            f"-DClang_DIR={str(llvm_cmake_dir / ".." / "clang")}",
+            f"-DLLVM_DIR={str(llvm_cmake_dir)}",
+            f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
+            "-DCMAKE_C_COMPILER=clang",
+            "-DCMAKE_CXX_COMPILER=clang++",
+            "-DCMAKE_BUILD_TYPE=Debug",
+            "-DIA2_DEBUG_LOG=True",
+        ]()
         ninja["rewriter"]()
         ninja["pad-tls"]()
         ninja["partition-alloc-padding"]()
         ninja["libia2"]()
 
-    ia2_path_arg = f"-Dia2_path={str(ia2_dir)}"
+    ia2_rewriter = local[ia2_dir / build_dir_name / "tools/rewriter/ia2-rewriter"]
+    pad_tls = local[ia2_dir / build_dir_name / "tools/pad-tls/pad-tls"]
+
+    ia2_path_args = [
+        f"-Dia2_path={str(ia2_dir)}",
+        f"-Dia2_build_path={str(ia2_dir / build_dir_name)}",
+    ]
 
     cross_args = []
-    if cross is not None:
-        cross_file = cwd / "package" / "crossfiles" / f"{cross}.meson"
+    if cross_target is not None:
+        cross_file = cwd / "package" / "crossfiles" / f"{cross_target}.meson"
         cross = parse_machine_files(filenames=[str(cross_file)], sourcedir=str(cwd))
         print(cross)
         cross_args = ["--cross-file", cross_file]
-        qemu_ld_prefix = Path("/usr") / target
+        qemu_ld_prefix = Path("/usr") / qemu_target
         qemu_ld_prefix.iterdir()  # check it exists
         local.env["QEMU_LD_PREFIX"] = qemu_ld_prefix
 
-    shutil.rmtree(build_dir)
-    build_dir.mkdir()
+    build_dir.mkdir(exist_ok=True, parents=True)
     with local.cwd(build_dir):
-        meson["setup", cwd, "--reconfigure", ia2_path_arg, *cross_args]()
+        meson["setup", cwd, "--reconfigure", *ia2_path_args, *cross_args]()
         ninja["include/vcs_version.h"]()
         canonicalize_compile_command_paths()
 
@@ -149,10 +183,7 @@ def main(
     ]
     rewrite = ia2_rewriter[
         "--arch",
-        {
-            "x86_64": "x86",
-            "aarch64": "aarch64",
-        }[target_arch],
+        ia2_target_arch,
         "--output-prefix",
         ia2_cwd / "callgate_wrapper",
         "--root-directory",
@@ -183,11 +214,11 @@ def main(
         gdb["--args", *rewrite.formulate()]()
 
     rpath = ia2_build_dir / "src"
-
+    rpath.mkdir(exist_ok=True)
     with local.cwd(ia2_cwd):
         clang[
             "-target",
-            target,
+            llvm_target,
             "-shared",
             "-fPIC",
             "-Wl,-z,now",
@@ -252,14 +283,17 @@ def main(
             ), f"failed to replace `{old}` with `{new}` in `{str(path)}`"
             path.write_text(new_text)
 
-    shutil.rmtree(ia2_build_dir)
-    ia2_build_dir.mkdir()
+    shutil.copy(
+        ia2_dir / build_dir_name / "runtime/partition-alloc/libpartition-alloc.so",
+        rpath,
+    )
+
     with local.cwd(ia2_build_dir):
         meson[
             "setup",
             ia2_cwd,
             "--reconfigure",
-            ia2_path_arg,
+            *ia2_path_args,
             *cross_args,
             "-Dia2_enable=true",
             f"-Dia2_permissive_mode={permissive_mode}",
