@@ -159,6 +159,7 @@ def main(
         cwd,
         "--output-directory",
         ia2_cwd,
+        "--enable-dav1d_get_picture-post-condition=False",
         "-p",
         cc_db.parent,
         *extra_args(
