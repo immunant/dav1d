@@ -73,6 +73,9 @@ def find_clang_include_dir(llvm_config: LocalCommand) -> Path:
 def main(
     permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False,
     target_arch: Annotated[str, Option(help="target arch")] = "x86_64",
+    enable_dav1d_get_picture_post_condition: Annotated[
+        bool, Option(help="enable the dav1d_get_picture post condition function")
+    ] = False,
 ):
     llvm_target = {
         "x86_64": "x86_64-unknown-linux-gnu",
@@ -190,7 +193,7 @@ def main(
         cwd,
         "--output-directory",
         ia2_cwd,
-        "--enable-dav1d_get_picture-post-condition=False",
+        f"--enable-dav1d_get_picture-post-condition={enable_dav1d_get_picture_post_condition}",
         "-p",
         cc_db.parent,
         *extra_args(
