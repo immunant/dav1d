@@ -102,13 +102,13 @@ def main(
 
     build_dir_name = f"build/{target_arch.value}"
 
-    cwd = Path.cwd()
-    build_dir = cwd / build_dir_name
-    ia2_dir = cwd / "../ia2"
-    ia2_include = ia2_dir / "runtime/libia2/include/"
-    ia2_cwd = cwd / ".." / f"{cwd.name}-ia2"
-    ia2_build_dir = ia2_cwd / build_dir_name
-    cc_db = build_dir / "compile_commands.json"
+    original_dir = Path.cwd()
+    original_build_dir = original_dir / build_dir_name
+    ia2_dir = original_dir / "../ia2"
+    ia2_build_dir = ia2_dir / build_dir_name
+    rewritten_dir = original_dir / ".." / f"{original_dir.name}-ia2"
+    rewritten_build_dir = rewritten_dir / build_dir_name
+    cc_db = original_build_dir / "compile_commands.json"
 
     meson = local["meson"]
     ninja = local["ninja"]
@@ -126,8 +126,8 @@ def main(
 
     llvm_cmake_dir = Path(llvm_config["--cmakedir"]().strip())
 
-    (ia2_dir / build_dir_name).mkdir(exist_ok=True, parents=True)
-    with local.cwd(ia2_dir / build_dir_name):
+    ia2_build_dir.mkdir(exist_ok=True, parents=True)
+    with local.cwd(ia2_build_dir):
         cmake[
             ia2_dir,
             "-G",
@@ -145,34 +145,36 @@ def main(
         ninja["partition-alloc-padding"]()
         ninja["libia2"]()
 
-    ia2_rewriter = local[ia2_dir / build_dir_name / "tools/rewriter/ia2-rewriter"]
-    pad_tls = local[ia2_dir / build_dir_name / "tools/pad-tls/pad-tls"]
+    ia2_rewriter = local[ia2_build_dir / "tools/rewriter/ia2-rewriter"]
+    pad_tls = local[ia2_build_dir / "tools/pad-tls/pad-tls"]
 
     ia2_path_args = [
         f"-Dia2_path={str(ia2_dir)}",
-        f"-Dia2_build_path={str(ia2_dir / build_dir_name)}",
+        f"-Dia2_build_path={str(ia2_build_dir)}",
     ]
 
     cross_args = []
     if cross_target is not None:
-        cross_file = cwd / "package" / "crossfiles" / f"{cross_target}.meson"
-        cross = parse_machine_files(filenames=[str(cross_file)], sourcedir=str(cwd))
+        cross_file = original_dir / "package" / "crossfiles" / f"{cross_target}.meson"
+        cross = parse_machine_files(
+            filenames=[str(cross_file)], sourcedir=str(original_dir)
+        )
         print(cross)
         cross_args = ["--cross-file", cross_file]
         qemu_ld_prefix = Path("/usr") / qemu_target
         qemu_ld_prefix.iterdir()  # check it exists
         local.env["QEMU_LD_PREFIX"] = qemu_ld_prefix
 
-    build_dir.mkdir(exist_ok=True, parents=True)
-    with local.cwd(build_dir):
-        meson["setup", cwd, "--reconfigure", *ia2_path_args, *cross_args]()
+    original_build_dir.mkdir(exist_ok=True, parents=True)
+    with local.cwd(original_build_dir):
+        meson["setup", original_dir, "--reconfigure", *ia2_path_args, *cross_args]()
         ninja["include/vcs_version.h"]()
         canonicalize_compile_command_paths()
 
-    if not ia2_cwd.is_dir():
-        git["clone", cwd, ia2_cwd]()
+    if not rewritten_dir.is_dir():
+        git["clone", original_dir, rewritten_dir]()
 
-    with local.cwd(ia2_cwd):
+    with local.cwd(rewritten_dir):
         git["switch", "ia2"]()
         stashed = git["stash", "push"]().strip() != "No local changes to save"
         git["pull", "--rebase"]()
@@ -183,10 +185,10 @@ def main(
 
     cc_text = cc_db.read_text()
     cmds = json.loads(cc_text)
-    srcs = filter_srcs(Path(cmd["file"]).relative_to(cwd) for cmd in cmds)
+    srcs = filter_srcs(Path(cmd["file"]).relative_to(original_dir) for cmd in cmds)
 
     srcs_to_rewrite = [
-        cwd / src
+        original_dir / src
         for src in srcs
         if src.parts[0] in {"src", "tools"} and src.suffix == ".c"
     ]
@@ -194,11 +196,11 @@ def main(
         "--arch",
         ia2_target_arch,
         "--output-prefix",
-        ia2_cwd / "callgate_wrapper",
+        rewritten_dir / "callgate_wrapper",
         "--root-directory",
-        cwd,
+        original_dir,
         "--output-directory",
-        ia2_cwd,
+        rewritten_dir,
         f"--enable-dav1d_get_picture-post-condition={enable_dav1d_get_picture_post_condition}",
         "-p",
         cc_db.parent,
@@ -222,18 +224,18 @@ def main(
     if retcode != 0:
         gdb["--args", *rewrite.formulate()]()
 
-    rpath = ia2_build_dir / "src"
+    rpath = rewritten_build_dir / "src"
     rpath.mkdir(exist_ok=True)
-    with local.cwd(ia2_cwd):
+    with local.cwd(rewritten_dir):
         clang[
             "-target",
             llvm_target,
             "-shared",
             "-fPIC",
             "-Wl,-z,now",
-            ia2_cwd / "callgate_wrapper.c",
+            rewritten_dir / "callgate_wrapper.c",
             "-I",
-            ia2_include,
+            ia2_dir / "runtime/libia2/include/",
             "-o",
             rpath / "libcallgates.so",
         ]()
@@ -293,14 +295,14 @@ def main(
             path.write_text(new_text)
 
     shutil.copy(
-        ia2_dir / build_dir_name / "runtime/partition-alloc/libpartition-alloc.so",
+        ia2_build_dir / "runtime/partition-alloc/libpartition-alloc.so",
         rpath,
     )
 
-    with local.cwd(ia2_build_dir):
+    with local.cwd(rewritten_build_dir):
         meson[
             "setup",
-            ia2_cwd,
+            rewritten_dir,
             "--reconfigure",
             *ia2_path_args,
             *cross_args,
@@ -318,7 +320,7 @@ def main(
         assert retcode == 0
         canonicalize_compile_command_paths()
 
-    dav1d = ia2_build_dir / "tools/dav1d"
+    dav1d = rewritten_build_dir / "tools/dav1d"
     pad_tls[dav1d]()
 
     for ldd in parse_ldd(ldd[dav1d]()):
