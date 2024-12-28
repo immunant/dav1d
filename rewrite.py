@@ -8,6 +8,7 @@
 #     "meson",
 # ]
 # ///
+from enum import Enum
 import typer
 from typer import Option
 from dataclasses import dataclass
@@ -70,31 +71,36 @@ def find_clang_include_dir(llvm_config: LocalCommand) -> Path:
     )
 
 
+class TargetArch(str, Enum):
+    X86_64 = "x86_64"
+    AArch64 = "aarch64"
+
+
 def main(
     permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False,
-    target_arch: Annotated[str, Option(help="target arch")] = "x86_64",
+    target_arch: Annotated[TargetArch, Option(help="target arch")] = TargetArch.X86_64,
     enable_dav1d_get_picture_post_condition: Annotated[
         bool, Option(help="enable the dav1d_get_picture post condition function")
     ] = False,
 ):
     llvm_target = {
-        "x86_64": "x86_64-unknown-linux-gnu",
-        "aarch64": "aarch64-unknown-linux-gnu",
+        TargetArch.X86_64: "x86_64-unknown-linux-gnu",
+        TargetArch.AArch64: "aarch64-unknown-linux-gnu",
     }[target_arch]
     cross_target = {
-        "x86_64": None,
-        "aarch64": "aarch64-linux-clang",
+        TargetArch.X86_64: None,
+        TargetArch.AArch64: "aarch64-linux-clang",
     }[target_arch]
     qemu_target = {
-        "x86_64": "x86_64-linux-gnu",
-        "aarch64": "aarch64-linux-gnu",
+        TargetArch.X86_64: "x86_64-linux-gnu",
+        TargetArch.AArch64: "aarch64-linux-gnu",
     }[target_arch]
     ia2_target_arch = {
-        "x86_64": "x86",
-        "aarch64": "aarch64",
+        TargetArch.X86_64: "x86",
+        TargetArch.AArch64: "aarch64",
     }[target_arch]
 
-    build_dir_name = f"build/{target_arch}"
+    build_dir_name = f"build/{target_arch.value}"
 
     cwd = Path.cwd()
     build_dir = cwd / build_dir_name
@@ -272,8 +278,8 @@ def main(
             (
                 Path("callgate_wrapper.h"),
                 {
-                    "x86_64": "struct __va_list_tag *",
-                    "aarch64": "struct __va_list",
+                    TargetArch.X86_64: "struct __va_list_tag *",
+                    TargetArch.AArch64: "struct __va_list",
                 }[target_arch],
                 "va_list",
             ),
