@@ -103,6 +103,7 @@ def main(
     dav1d_meson_build_type: Annotated[
         MesonBuildType, Option(help="dav1d's meson buildtype")
     ] = MesonBuildType.Debug,
+    ia2_debug_log: Annotated[bool, Option(help="IA2_DEBUG_LOG")] = True,
 ):
     llvm_target = {
         TargetArch.X86_64: "x86_64-unknown-linux-gnu",
@@ -159,7 +160,7 @@ def main(
             "-DCMAKE_C_COMPILER=clang",
             "-DCMAKE_CXX_COMPILER=clang++",
             f"-DCMAKE_BUILD_TYPE={ia2_cmake_build_type.value}",
-            "-DIA2_DEBUG_LOG=True",
+            f"-DIA2_DEBUG_LOG={ia2_debug_log}",
         ]()
         ninja["rewriter"]()
         ninja["pad-tls"]()
