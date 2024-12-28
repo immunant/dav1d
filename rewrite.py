@@ -83,6 +83,14 @@ class CMakeBuildType(str, Enum):
     MinSizeRel = "MinSizeRel"
 
 
+class MesonBuildType(str, Enum):
+    Plain = "plain"
+    Debug = "debug"
+    DebugOptimized = "debugoptimized"
+    Release = "release"
+    MinSize = "minsize"
+
+
 def main(
     permissive_mode: Annotated[bool, Option(help="IA2 permissive mode")] = False,
     target_arch: Annotated[TargetArch, Option(help="target arch")] = TargetArch.X86_64,
@@ -92,6 +100,9 @@ def main(
     ia2_cmake_build_type: Annotated[
         CMakeBuildType, Option(help="IA2's CMAKE_BUILD_TYPE")
     ] = CMakeBuildType.Debug,
+    dav1d_meson_build_type: Annotated[
+        MesonBuildType, Option(help="dav1d's meson buildtype")
+    ] = MesonBuildType.Debug,
 ):
     llvm_target = {
         TargetArch.X86_64: "x86_64-unknown-linux-gnu",
@@ -318,7 +329,7 @@ def main(
             *cross_args,
             "-Dia2_enable=true",
             f"-Dia2_permissive_mode={permissive_mode}",
-            "--buildtype=debug",
+            f"--buildtype={dav1d_meson_build_type.value}",
         ]()
         retcode, stdout, stderr = ninja["tools/dav1d"].run(
             # retcode=None,
