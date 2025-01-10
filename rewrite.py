@@ -148,6 +148,46 @@ def main(
 
     llvm_cmake_dir = Path(llvm_config["--cmakedir"]().strip())
 
+    meson_cross_args = []
+    cmake_cross_args = []
+    if cross_target is not None:
+        usr = Path("/usr")
+        qemu_ld_prefix = usr / qemu_target
+        qemu_ld_prefix.iterdir()  # check it exists
+        local.env["QEMU_LD_PREFIX"] = qemu_ld_prefix
+
+        cmake_cflags = [
+            "-target",
+            llvm_target,
+            "--sysroot",
+            qemu_ld_prefix,
+            f"--gcc-toolchain={str(usr)}",
+            *{
+                TargetArch.X86_64: [],
+                TargetArch.AArch64: [
+                    "-ffixed-x18",
+                ],
+            }[target_arch],
+        ]
+        cmake_cflags = " ".join(str(flag) for flag in cmake_cflags)
+        cmake_cross_args = [
+            *{
+                TargetArch.X86_64: [],
+                TargetArch.AArch64: [
+                    f"-DCMAKE_TOOLCHAIN_FILE={str(ia2_dir / "cmake/aarch64-toolchain.cmake")}",
+                ],
+            }[target_arch],
+            f"-DCMAKE_C_FLAGS={cmake_cflags}",
+            f"-DCMAKE_CXX_FLAGS={cmake_cflags}",
+        ]
+
+        cross_file = original_dir / "package" / "crossfiles" / f"{cross_target}.meson"
+        cross = parse_machine_files(
+            filenames=[str(cross_file)], sourcedir=str(original_dir)
+        )
+        print(cross)
+        meson_cross_args = ["--cross-file", cross_file]
+
     ia2_build_dir.mkdir(exist_ok=True, parents=True)
     with local.cwd(ia2_build_dir):
         cmake[
@@ -159,12 +199,7 @@ def main(
             f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
             "-DCMAKE_C_COMPILER=clang",
             "-DCMAKE_CXX_COMPILER=clang++",
-            *{
-                TargetArch.X86_64: [],
-                TargetArch.AArch64: [
-                    f"-DCMAKE_TOOLCHAIN_FILE={str(ia2_dir / "cmake/aarch64-toolchain.cmake")}"
-                ],
-            }[target_arch],
+            *cmake_cross_args,
             f"-DCMAKE_BUILD_TYPE={ia2_cmake_build_type.value}",
             f"-DIA2_DEBUG_LOG={ia2_debug_log}",
         ]()
@@ -181,21 +216,11 @@ def main(
         f"-Dia2_build_path={str(ia2_build_dir)}",
     ]
 
-    cross_args = []
-    if cross_target is not None:
-        cross_file = original_dir / "package" / "crossfiles" / f"{cross_target}.meson"
-        cross = parse_machine_files(
-            filenames=[str(cross_file)], sourcedir=str(original_dir)
-        )
-        print(cross)
-        cross_args = ["--cross-file", cross_file]
-        qemu_ld_prefix = Path("/usr") / qemu_target
-        qemu_ld_prefix.iterdir()  # check it exists
-        local.env["QEMU_LD_PREFIX"] = qemu_ld_prefix
-
     original_build_dir.mkdir(exist_ok=True, parents=True)
     with local.cwd(original_build_dir):
-        meson["setup", original_dir, "--reconfigure", *ia2_path_args, *cross_args]()
+        meson[
+            "setup", original_dir, "--reconfigure", *ia2_path_args, *meson_cross_args
+        ]()
         ninja["include/vcs_version.h"]()
         canonicalize_compile_command_paths()
 
@@ -333,7 +358,7 @@ def main(
             rewritten_dir,
             "--reconfigure",
             *ia2_path_args,
-            *cross_args,
+            *meson_cross_args,
             "-Dia2_enable=true",
             f"-Dia2_permissive_mode={permissive_mode}",
             f"--buildtype={dav1d_meson_build_type.value}",
