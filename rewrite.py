@@ -104,10 +104,16 @@ def main(
         MesonBuildType, Option(help="dav1d's meson buildtype")
     ] = MesonBuildType.Debug,
     ia2_debug_log: Annotated[bool, Option(help="IA2_DEBUG_LOG")] = True,
+    llvm_config: Annotated[Path, Option(help="llvm-config name or path")] = Path(
+        "llvm-config"
+    ),
+    custom_llvm_project: Annotated[
+        Path | None, Option(help="custom llvm-project repo (for aarch64)")
+    ] = None,
 ):
     llvm_target = {
-        TargetArch.X86_64: "x86_64-unknown-linux-gnu",
-        TargetArch.AArch64: "aarch64-unknown-linux-gnu",
+        TargetArch.X86_64: "x86_64-linux-gnu",
+        TargetArch.AArch64: "aarch64-linux-gnu",
     }[target_arch]
     cross_target = {
         TargetArch.X86_64: None,
@@ -135,42 +141,92 @@ def main(
     meson = local["meson"]
     ninja = local["ninja"]
     git = local["git"]
-    llvm_config = local["llvm-config"]
     gdb = local["gdb"]
-    clang = local["clang"]
     ldd = local["ldd"]
     cmake = local["cmake"]
     lit = local["lit"]
+    bash = local["bash"]
 
     canonicalize_compile_command_paths = local[
         ia2_dir / "tools/rewriter/canonicalize_compile_command_paths.py"
     ]
 
+    if custom_llvm_project is not None:
+        with local.cwd(custom_llvm_project):
+            bash["./build.sh"]()
+            bash["./cross-build-rtlibs.sh"]()
+
+        llvm_config = custom_llvm_project / "build/bin/llvm-config"
+
+    llvm_config: LocalCommand = local[llvm_config]
+    llvm_bindir = Path(llvm_config["--bindir"]().strip())
     llvm_cmake_dir = Path(llvm_config["--cmakedir"]().strip())
+
+    clang = local[llvm_bindir / "clang"]
+    clang_cpp = local[llvm_bindir / "clang++"]
 
     meson_cross_args = []
     cmake_cross_args = []
     if cross_target is not None:
         usr = Path("/usr")
-        qemu_ld_prefix = usr / qemu_target
-        qemu_ld_prefix.iterdir()  # check it exists
-        local.env["QEMU_LD_PREFIX"] = qemu_ld_prefix
+        sysroot = usr / qemu_target
+        sysroot.iterdir()  # check it exists
+        local.env["QEMU_LD_PREFIX"] = sysroot
+        local.env["LDFLAGS"] = f"-L{str(sysroot / "lib")}"
 
         cmake_cflags = [
             "-target",
             llvm_target,
-            "--sysroot",
-            qemu_ld_prefix,
+            "-isystem",
+            sysroot / "include",
+            # "--sysroot",
+            # sysroot,
             f"--gcc-toolchain={str(usr)}",
             *{
                 TargetArch.X86_64: [],
-                TargetArch.AArch64: [
-                    "-ffixed-x18",
-                ],
+                TargetArch.AArch64: ["-ffixed-x18", "-march=armv8.5-a+memtag"],
             }[target_arch],
         ]
-        cmake_cflags = " ".join(str(flag) for flag in cmake_cflags)
+        cmake_link_flags = []
+        cmake_exe_linker_flags = []
+        cmake_shared_linker_flags = []
+
+        if custom_llvm_project is not None:
+            rt_libs_build_dir = custom_llvm_project / "build-rtlibs"
+            cmake_cflags += [
+                "--rtlib=compiler-rt",
+                "--stdlib=libc++",
+                f"-I{str(rt_libs_build_dir / "include/c++/v1")}",
+            ]
+            cmake_link_flags += [
+                "--rtlib=compiler-rt",
+                "--unwindlib=libunwind",
+                f"-B{str(rt_libs_build_dir / "compiler-rt/lib/linux")}",
+                f"-L{str(rt_libs_build_dir /"lib")}",
+            ]
+            cmake_exe_linker_flags = [
+                *cmake_link_flags,
+                "-lm",
+                f"-Wl,-rpath-link,{str(rt_libs_build_dir / "lib")}",
+            ]
+            cmake_shared_linker_flags = [
+                *cmake_link_flags,
+                f"-Wl,-rpath,{str(rt_libs_build_dir / "lib")}",
+            ]
+
+        qemu = local[f"qemu-{target_arch.value}"]
+
+        cmake_cflags, cmake_exe_linker_flags, cmake_shared_linker_flags = tuple(
+            " ".join(str(flag) for flag in flags)
+            for flags in (
+                cmake_cflags,
+                cmake_exe_linker_flags,
+                cmake_shared_linker_flags,
+            )
+        )
+
         cmake_cross_args = [
+            f"-DCMAKE_CROSSCOMPILING_EMULATOR={str(qemu)}",
             *{
                 TargetArch.X86_64: [],
                 TargetArch.AArch64: [
@@ -179,6 +235,8 @@ def main(
             }[target_arch],
             f"-DCMAKE_C_FLAGS={cmake_cflags}",
             f"-DCMAKE_CXX_FLAGS={cmake_cflags}",
+            f"-DCMAKE_EXE_LINKER_FLAGS={cmake_exe_linker_flags}",
+            f"-DCMAKE_SHARED_LINKER_FLAGS={cmake_shared_linker_flags}",
         ]
 
         cross_file = original_dir / "package" / "crossfiles" / f"{cross_target}.meson"
@@ -197,8 +255,8 @@ def main(
             f"-DClang_DIR={str(llvm_cmake_dir / ".." / "clang")}",
             f"-DLLVM_DIR={str(llvm_cmake_dir)}",
             f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
-            "-DCMAKE_C_COMPILER=clang",
-            "-DCMAKE_CXX_COMPILER=clang++",
+            f"-DCMAKE_C_COMPILER={str(clang.executable)}",
+            f"-DCMAKE_CXX_COMPILER={str(clang_cpp.executable)}",
             *cmake_cross_args,
             f"-DCMAKE_BUILD_TYPE={ia2_cmake_build_type.value}",
             f"-DIA2_DEBUG_LOG={ia2_debug_log}",
