@@ -252,6 +252,8 @@ def main(
             ia2_dir,
             "-G",
             "Ninja",
+            # f"-DClang_DIR={str(llvm_cmake_dir / ".." / "clang")}",
+            # f"-DLLVM_DIR={str(llvm_cmake_dir)}",
             f"-DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang", # TODO: Don't hard code path.
             f"-DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm", # TODO: Don't hard code path.
             f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
@@ -292,6 +294,7 @@ def main(
         if stashed:
             git["stash", "pop"]()
 
+    # clang_include_dir = find_clang_include_dir(llvm_config)
     clang_include_dir = "/usr/lib/llvm-14/lib/clang/14.0.0/include" # TODO: Don't hard code path.
 
     cc_text = cc_db.read_text()
