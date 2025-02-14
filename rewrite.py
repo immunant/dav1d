@@ -292,7 +292,7 @@ def main(
         if stashed:
             git["stash", "pop"]()
 
-    clang_include_dir = find_clang_include_dir(llvm_config)
+    clang_include_dir = "/usr/lib/llvm-14/lib/clang/14.0.0/include" # TODO: Don't hard code path.
 
     cc_text = cc_db.read_text()
     cmds = json.loads(cc_text)
