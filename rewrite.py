@@ -395,7 +395,7 @@ def main(
                 Path("callgate_wrapper.h"),
                 {
                     TargetArch.X86_64: "struct __va_list_tag *",
-                    TargetArch.AArch64: "struct __va_list",
+                    TargetArch.AArch64: "struct std::__va_list",
                 }[target_arch],
                 "va_list",
             ),
