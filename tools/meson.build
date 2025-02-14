@@ -79,7 +79,7 @@ if ia2_path != ''
             '-Wl,-wrap,vasprintf',
 
             # for `__tls_get_addr@@GLIBC_2.3`, which didn't use to error for being undefined, but now does
-            '/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2',
+            # '/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2', # TODO: Restore this for other platforms?
         ]
     endif
 endif
