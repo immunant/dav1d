@@ -195,12 +195,12 @@ def main(
             rt_libs_build_dir = custom_llvm_project / "build-rtlibs"
             cmake_cflags += [
                 "--rtlib=compiler-rt",
-                "--stdlib=libc++",
+                # "--stdlib=libc++", # TODO: Only remove when building for aarch64?
                 f"-I{str(rt_libs_build_dir / "include/c++/v1")}",
             ]
             cmake_link_flags += [
                 "--rtlib=compiler-rt",
-                "--unwindlib=libunwind",
+                # "--unwindlib=libunwind", # TODO: Only remove when building for aarch64?
                 f"-B{str(rt_libs_build_dir / "compiler-rt/lib/linux")}",
                 f"-L{str(rt_libs_build_dir /"lib")}",
             ]
@@ -252,8 +252,8 @@ def main(
             ia2_dir,
             "-G",
             "Ninja",
-            f"-DClang_DIR={str(llvm_cmake_dir / ".." / "clang")}",
-            f"-DLLVM_DIR={str(llvm_cmake_dir)}",
+            f"-DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang", # TODO: Don't hard code path.
+            f"-DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm", # TODO: Don't hard code path.
             f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
             f"-DCMAKE_C_COMPILER={str(clang.executable)}",
             f"-DCMAKE_CXX_COMPILER={str(clang_cpp.executable)}",
