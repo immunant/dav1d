@@ -320,10 +320,17 @@ link_args = []
 
 if ia2_path != ''
     libdav1d_flags += [
+        '-O3',
+        '-ffixed-x18',
+        '-march=armv8.5-a+memtag',
+        '-B/home/amunoz/ia2/llvm-project/build-rtlibs/compiler-rt/lib/linux',
+        '-L/home/amunoz/ia2/llvm-project/build-rtlibs/lib',
+        '--rtlib=compiler-rt',
         f'-DPKEY=@pkey@',
     ]
     if ia2_enable
         link_args += [
+            '--rtlib=compiler-rt',
             '-Wl,@' + join_paths(dav1d_src_root, f'callgate_wrapper_@pkey@.ld'),
         ]
     endif

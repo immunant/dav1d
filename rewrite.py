@@ -195,12 +195,14 @@ def main(
             rt_libs_build_dir = custom_llvm_project / "build-rtlibs"
             cmake_cflags += [
                 "--rtlib=compiler-rt",
+                "--unwindlib=libunwind",
                 "--stdlib=libc++",
                 f"-I{str(rt_libs_build_dir / "include/c++/v1")}",
             ]
             cmake_link_flags += [
                 "--rtlib=compiler-rt",
                 "--unwindlib=libunwind",
+                "--stdlib=libc++",
                 f"-B{str(rt_libs_build_dir / "compiler-rt/lib/linux")}",
                 f"-L{str(rt_libs_build_dir /"lib")}",
             ]
@@ -239,7 +241,7 @@ def main(
             f"-DCMAKE_SHARED_LINKER_FLAGS={cmake_shared_linker_flags}",
         ]
 
-        cross_file = original_dir / "package" / "crossfiles" / f"{cross_target}.meson"
+        cross_file = original_dir / "package" / "crossfiles" / "aarch64-linux-clang.meson"
         cross = parse_machine_files(
             filenames=[str(cross_file)], sourcedir=str(original_dir)
         )
@@ -252,8 +254,8 @@ def main(
             ia2_dir,
             "-G",
             "Ninja",
-            f"-DClang_DIR={str(llvm_cmake_dir / ".." / "clang")}",
-            f"-DLLVM_DIR={str(llvm_cmake_dir)}",
+            f"-DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang",
+            f"-DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm",
             f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
             f"-DCMAKE_C_COMPILER={str(clang.executable)}",
             f"-DCMAKE_CXX_COMPILER={str(clang_cpp.executable)}",
@@ -292,7 +294,7 @@ def main(
         if stashed:
             git["stash", "pop"]()
 
-    clang_include_dir = find_clang_include_dir(llvm_config)
+    clang_include_dir = "/usr/lib/llvm-14/lib/clang/14.0.0/include"
 
     cc_text = cc_db.read_text()
     cmds = json.loads(cc_text)
@@ -312,13 +314,11 @@ def main(
         original_dir,
         "--output-directory",
         rewritten_dir,
-        f"--enable-dav1d_get_picture-post-condition={enable_dav1d_get_picture_post_condition}",
         "-p",
         cc_db.parent,
         *extra_args(
             "-isystem",
-            "include-fixed",
-            "-isystem",
+            "--extra-arg ",
             clang_include_dir,
         ),
         *srcs_to_rewrite,
@@ -389,10 +389,10 @@ def main(
                 "validate_input_or_ret(IA2_ADDR(s->allocator.release_picture_callback) != NULL,",
             ),
             (
-                Path("callgate_wrapper.h"),
+                src / "../../dav1d-ia2/callgate_wrapper.h",
                 {
                     TargetArch.X86_64: "struct __va_list_tag *",
-                    TargetArch.AArch64: "struct __va_list",
+                    TargetArch.AArch64: "struct std::__va_list",
                 }[target_arch],
                 "va_list",
             ),
@@ -421,7 +421,7 @@ def main(
             f"-Dia2_permissive_mode={permissive_mode}",
             f"--buildtype={dav1d_meson_build_type.value}",
         ]()
-        retcode, stdout, stderr = ninja["tools/dav1d"].run(
+        retcode, stdout, stderr = ninja["tools/dav1d", "-vvv"].run(
             # retcode=None,
             stdout=sys.stdout,
             stderr=sys.stderr,
@@ -429,17 +429,23 @@ def main(
         # Path("ninja.out").write_text(stdout)
         # Path("ninja.err").write_text(stderr)
         assert retcode == 0
+        retcode, stdout, stderr = ninja["src/libdav1d.so"].run(
+            # retcode=None,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+        assert retcode == 0
         canonicalize_compile_command_paths()
 
     dav1d = rewritten_build_dir / "tools/dav1d"
     pad_tls[dav1d]()
 
-    for ldd in parse_ldd(ldd[dav1d]()):
-        padded = rpath / ldd.name
-        if padded.exists() and ldd.path.samefile(padded):
-            continue
-        shutil.copy(ldd.path, padded)
-        pad_tls["--allow-no-tls", padded]()
+    #for ldd in parse_ldd(ldd[dav1d]()):
+    #    padded = rpath / ldd.name
+    #    if padded.exists() and ldd.path.samefile(padded):
+    #        continue
+    #    shutil.copy(ldd.path, padded)
+    #    pad_tls["--allow-no-tls", padded]()
 
 
 if __name__ == "__main__":

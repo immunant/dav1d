@@ -46,11 +46,21 @@ link_args = []
 
 if ia2_path != ''
     c_args += [
+        '-O3',
+        '-g',
+        '-ffixed-x18',
+        '-march=armv8.5-a+memtag',
+        '-B/home/amunoz/ia2/llvm-project/build-rtlibs/compiler-rt/lib/linux',
+        '-L/home/amunoz/ia2/llvm-project/build-rtlibs/lib',
+        '--rtlib=compiler-rt',
         f'-DPKEY=@pkey@',
     ]
     if ia2_enable
         link_args += [
             '-Wl,@' + join_paths(dav1d_src_root, f'callgate_wrapper_@pkey@.ld'),
+            '-Wl,--dynamic-linker=/tmp/build/aarch64/tools/ld-linux-aarch64.so.1',
+            '-Wl,--rpath=/tmp/build/aarch64/tools/',
+            '--rtlib=compiler-rt',
             '-Wl,--wrap=main',
             '-Wl,--dynamic-list=' + join_paths(ia2_path, 'runtime/libia2/dynsym.syms'),
             '-Wl,--export-dynamic',
@@ -77,9 +87,6 @@ if ia2_path != ''
             # <stdio.h> functions
             '-Wl,-wrap,asprintf',
             '-Wl,-wrap,vasprintf',
-
-            # for `__tls_get_addr@@GLIBC_2.3`, which didn't use to error for being undefined, but now does
-            '/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2',
         ]
     endif
 endif
