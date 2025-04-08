@@ -31,8 +31,6 @@
 #include "config.h"
 
 #if ARCH_AARCH64
-#define x18 do_not_use_x18
-#define w18 do_not_use_w18
 
 #if HAVE_AS_ARCH_DIRECTIVE
         .arch AS_ARCH_LEVEL

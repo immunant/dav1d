@@ -118,6 +118,8 @@
 
 .macro bidir_fn type, bdmax
 function \type\()_16bpc_neon, export=1
+        extr x6, x6, x18, #56
+        extr x6, x6, x6, #8
         clz             w4,  w4
 .ifnc \type, avg
         dup             v31.8h,  \bdmax // bitdepth_max
@@ -565,6 +567,8 @@ w_mask_fn 420
 
 
 function blend_16bpc_neon, export=1
+        extr x5, x5, x18, #56
+        extr x5, x5, x5, #8
         movrel          x6,  blend_tbl
         clz             w3,  w3
         sub             w3,  w3,  #26

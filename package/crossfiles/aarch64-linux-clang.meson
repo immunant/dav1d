@@ -1,5 +1,5 @@
 [binaries]
-c = 'clang'
+c = '/home/amunoz/ia2/llvm-project/build/bin/clang'
 cpp = 'clang++'
 ar = 'aarch64-linux-gnu-ar'
 strip = 'aarch64-linux-gnu-strip'
