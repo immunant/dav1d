@@ -42,7 +42,7 @@
 #define HWCAP2_AARCH64_SVE2   (1 << 1)
 #define HWCAP2_AARCH64_I8MM   (1 << 13)
 
-COLD unsigned dav1d_get_cpu_flags_arm(void) {
+DAV1D_API COLD unsigned dav1d_get_cpu_flags_arm(void) {
 #if HAVE_GETAUXVAL
     unsigned long hw_cap = getauxval(AT_HWCAP);
     unsigned long hw_cap2 = getauxval(AT_HWCAP2);
@@ -68,7 +68,7 @@ COLD unsigned dav1d_get_cpu_flags_arm(void) {
 #define HWCAP_ARM_ASIMDDP (1 << 24)
 #define HWCAP_ARM_I8MM    (1 << 27)
 
-COLD unsigned dav1d_get_cpu_flags_arm(void) {
+DAV1D_API COLD unsigned dav1d_get_cpu_flags_arm(void) {
 #if HAVE_GETAUXVAL
     unsigned long hw_cap = getauxval(AT_HWCAP);
 #else
@@ -96,7 +96,7 @@ static int have_feature(const char *feature) {
     return supported;
 }
 
-COLD unsigned dav1d_get_cpu_flags_arm(void) {
+DAV1D_API COLD unsigned dav1d_get_cpu_flags_arm(void) {
     unsigned flags = dav1d_get_default_cpu_flags();
     if (have_feature("hw.optional.arm.FEAT_DotProd"))
         flags |= DAV1D_ARM_CPU_FLAG_DOTPROD;
@@ -112,7 +112,7 @@ COLD unsigned dav1d_get_cpu_flags_arm(void) {
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
-COLD unsigned dav1d_get_cpu_flags_arm(void) {
+DAV1D_API COLD unsigned dav1d_get_cpu_flags_arm(void) {
      unsigned flags = dav1d_get_default_cpu_flags();
 
 #ifdef CPU_ID_AA64ISAR0
@@ -146,7 +146,7 @@ COLD unsigned dav1d_get_cpu_flags_arm(void) {
 #elif defined(_WIN32)
 #include <windows.h>
 
-COLD unsigned dav1d_get_cpu_flags_arm(void) {
+DAV1D_API COLD unsigned dav1d_get_cpu_flags_arm(void) {
     unsigned flags = dav1d_get_default_cpu_flags();
 #ifdef PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE
     if (IsProcessorFeaturePresent(PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE))
@@ -211,7 +211,7 @@ static unsigned parse_proc_cpuinfo(const char *flag) {
     return 0;
 }
 
-COLD unsigned dav1d_get_cpu_flags_arm(void) {
+DAV1D_API COLD unsigned dav1d_get_cpu_flags_arm(void) {
     unsigned flags = dav1d_get_default_cpu_flags();
     flags |= parse_proc_cpuinfo("neon") ? DAV1D_ARM_CPU_FLAG_NEON : 0;
     flags |= parse_proc_cpuinfo("asimd") ? DAV1D_ARM_CPU_FLAG_NEON : 0;
@@ -226,7 +226,7 @@ COLD unsigned dav1d_get_cpu_flags_arm(void) {
 
 #else  /* Unsupported OS */
 
-COLD unsigned dav1d_get_cpu_flags_arm(void) {
+DAV1D_API COLD unsigned dav1d_get_cpu_flags_arm(void) {
     return dav1d_get_default_cpu_flags();
 }
 
