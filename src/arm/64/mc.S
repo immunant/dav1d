@@ -30,6 +30,10 @@
 #include "util.S"
 
 .macro avg dst, t0, t1, t2, t3
+        extr x2, x2, x18, #56
+        extr x2, x2, x2, #8
+        extr x3, x3, x18, #56
+        extr x3, x3, x3, #8
         ld1             {\t0\().8h,\t1\().8h},   [x2],  32
         ld1             {\t2\().8h,\t3\().8h},   [x3],  32
         add             \t0\().8h,   \t0\().8h,   \t2\().8h
@@ -39,6 +43,10 @@
 .endm
 
 .macro w_avg dst, t0, t1, t2, t3
+        extr x2, x2, x18, #56
+        extr x2, x2, x2, #8
+        extr x3, x3, x18, #56
+        extr x3, x3, x3, #8
         ld1             {\t0\().8h,\t1\().8h},   [x2],  32
         ld1             {\t2\().8h,\t3\().8h},   [x3],  32
         sub             \t0\().8h,   \t2\().8h,   \t0\().8h
@@ -52,6 +60,12 @@
 .endm
 
 .macro mask dst, t0, t1, t2, t3
+        extr x6, x6, x18, #56
+        extr x6, x6, x6, #8
+        extr x2, x2, x18, #56
+        extr x2, x2, x2, #8
+        extr x3, x3, x18, #56
+        extr x3, x3, x3, #8
         ld1             {v30.16b}, [x6],  16
         ld1             {\t0\().8h,\t1\().8h},   [x2],  32
         mul             v30.16b, v30.16b, v31.16b
@@ -436,6 +450,8 @@ w_mask_fn 420
 
 
 function blend_8bpc_neon, export=1
+        extr x5, x5, x18, #56
+        extr x5, x5, x5, #8
         movrel          x6,  blend_tbl
         clz             w3,  w3
         sub             w3,  w3,  #26
