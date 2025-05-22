@@ -103,7 +103,8 @@ def main(
     dav1d_meson_build_type: Annotated[
         MesonBuildType, Option(help="dav1d's meson buildtype")
     ] = MesonBuildType.Debug,
-    ia2_debug_log: Annotated[bool, Option(help="IA2_DEBUG_LOG")] = True,
+    ia2_verbose: Annotated[bool, Option(help="IA2_VERBOSE")] = True,
+    ia2_debug_memory: Annotated[bool, Option(help="IA2_DEBUG_MEMORY")] = True,
     llvm_config: Annotated[Path, Option(help="llvm-config name or path")] = Path(
         "llvm-config"
     ),
@@ -259,7 +260,8 @@ def main(
             f"-DCMAKE_CXX_COMPILER={str(clang_cpp.executable)}",
             *cmake_cross_args,
             f"-DCMAKE_BUILD_TYPE={ia2_cmake_build_type.value}",
-            f"-DIA2_DEBUG_LOG={ia2_debug_log}",
+            f"-DIA2_VERBOSE={ia2_verbose}",
+            f"-DIA2_DEBUG_MEMORY={ia2_debug_memory}",
         ]()
         ninja["rewriter"]()
         ninja["pad-tls"]()
@@ -293,6 +295,8 @@ def main(
             git["stash", "pop"]()
 
     clang_include_dir = find_clang_include_dir(llvm_config)
+    print(clang_include_dir)
+    return
 
     cc_text = cc_db.read_text()
     cmds = json.loads(cc_text)

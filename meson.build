@@ -582,7 +582,8 @@ ia2_permissive_mode = get_option('ia2_permissive_mode')
 if ia2_path != ''
     ia2_args = [
         '-DIA2_DEBUG=1',
-        '-DIA2_DEBUG_LOG=1',
+        '-DIA2_VERBOSE=1',
+        '-DIA2_DEBUG_MEMORY=1',
         '-I' + join_paths(ia2_path, 'runtime/libia2/include'),
         # overrides
         '-std=gnu99',
