@@ -103,6 +103,7 @@ def main(
     dav1d_meson_build_type: Annotated[
         MesonBuildType, Option(help="dav1d's meson buildtype")
     ] = MesonBuildType.Debug,
+    ia2_tracer: Annotated[bool, Option(help="IA2_TRACER")] = True,
     ia2_verbose: Annotated[bool, Option(help="IA2_VERBOSE")] = True,
     ia2_debug_memory: Annotated[bool, Option(help="IA2_DEBUG_MEMORY")] = True,
     llvm_config: Annotated[Path, Option(help="llvm-config name or path")] = Path(
@@ -260,6 +261,7 @@ def main(
             f"-DCMAKE_CXX_COMPILER={str(clang_cpp.executable)}",
             *cmake_cross_args,
             f"-DCMAKE_BUILD_TYPE={ia2_cmake_build_type.value}",
+            f"-DIA2_TRACER={ia2_tracer}",
             f"-DIA2_VERBOSE={ia2_verbose}",
             f"-DIA2_DEBUG_MEMORY={ia2_debug_memory}",
         ]()
