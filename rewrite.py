@@ -298,7 +298,6 @@ def main(
 
     clang_include_dir = find_clang_include_dir(llvm_config)
     print(clang_include_dir)
-    return
 
     cc_text = cc_db.read_text()
     cmds = json.loads(cc_text)
@@ -318,7 +317,7 @@ def main(
         original_dir,
         "--output-directory",
         rewritten_dir,
-        f"--enable-dav1d_get_picture-post-condition={enable_dav1d_get_picture_post_condition}",
+        #f"--enable-dav1d_get_picture-post-condition={enable_dav1d_get_picture_post_condition}",
         "-p",
         cc_db.parent,
         *extra_args(
