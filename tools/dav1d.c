@@ -6,6 +6,11 @@ INIT_RUNTIME(2); // This is the number of pkeys needed.
 #include <permissive_mode.h>
 #endif
 
+void ia2_main(void) {
+    ia2_register_compartment("main", 1, NULL);
+    ia2_register_compartment("libdav1d.so", 2, NULL);
+}
+
 /*
  * Copyright © 2018, VideoLAN and dav1d authors
  * Copyright © 2018, Two Orioles, LLC
