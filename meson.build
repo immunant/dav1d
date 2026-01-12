@@ -40,7 +40,7 @@ cdata = configuration_data()
 cdata_asm = configuration_data()
 
 # Include directories
-dav1d_inc_dirs = include_directories(['.', 'include/dav1d', 'include'])
+dav1d_inc_dirs = include_directories(['.', 'include/dav1d', 'include', '/home/ayrton/immunant/IA2-Phase2/runtime/libia2/include'])
 
 dav1d_api_version_major    = cc.get_define('DAV1D_API_VERSION_MAJOR',
                                            prefix: '#include "dav1d/version.h"',

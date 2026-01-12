@@ -25,6 +25,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined(IA2_REWRITING) || defined(IA2_ENABLE)
+#include <ia2.h>
+#define IA2_COMPARTMENT 2
+#include <ia2_compartment_init.inc>
+#endif
+
 #include "config.h"
 #include "vcs_version.h"
 

@@ -1,0 +1,108 @@
+#!/bin/bash
+set -euo pipefail
+REPO_ROOT=`realpath ${PWD}/../IA2-Phase2/`
+BUILD_DIR=${PWD}/build
+IA2_BUILD_DIR=${BUILD_DIR}/ia2
+DAV1D_BUILD_DIR=${BUILD_DIR}/dav1d
+DAV1D_SRC_ROOT=${PWD}
+PA_LIBRARY=runtime/partition-alloc/libpartition-alloc.so
+SRC_REWRITER=$IA2_BUILD_DIR/tools/rewriter/ia2-rewriter
+
+if ! command -v bear; then
+    echo "Bear is required for this demo. See https://github.com/rizsotto/Bear for installation details."
+    exit 1
+fi
+
+mkdir -p $IA2_BUILD_DIR
+pushd $IA2_BUILD_DIR
+cmake -GNinja $REPO_ROOT ${IA2_CMAKE_FLAGS:-}
+ninja tools libia2 ${PA_LIBRARY}
+popd
+
+mkdir -p $DAV1D_BUILD_DIR
+pushd $DAV1D_BUILD_DIR
+if [ ! -f build.ninja ]; then
+    CC=clang meson setup ../..
+fi
+
+if [ ! -f $BUILD_DIR/compile_commands.json ]; then
+    bear -- ninja tools/dav1d
+    cp compile_commands.json $BUILD_DIR
+fi
+popd
+
+CLANG_HEADERS_INCLUDE=`clang -print-file-name=include`
+CLANG_HEADERS_INCLUDE_FIXED=`clang -print-file-name=include-fixed`
+
+$SRC_REWRITER --output-prefix=${BUILD_DIR}/wrapper \
+    --root-directory=$DAV1D_SRC_ROOT \
+    --output-directory=$BUILD_DIR \
+    -p $BUILD_DIR/compile_commands.json \
+    --extra-arg -isystem --extra-arg $CLANG_HEADERS_INCLUDE \
+    --extra-arg -isystem --extra-arg $CLANG_HEADERS_INCLUDE_FIXED \
+    $DAV1D_SRC_ROOT/src/cdef_apply_tmpl.c \
+    $DAV1D_SRC_ROOT/src/cdef_tmpl.c \
+    $DAV1D_SRC_ROOT/src/ipred_prepare_tmpl.c \
+    $DAV1D_SRC_ROOT/src/ipred_tmpl.c \
+    $DAV1D_SRC_ROOT/src/filmgrain_tmpl.c \
+    $DAV1D_SRC_ROOT/src/fg_apply_tmpl.c \
+    $DAV1D_SRC_ROOT/src/lf_apply_tmpl.c \
+    $DAV1D_SRC_ROOT/src/itx_tmpl.c \
+    $DAV1D_SRC_ROOT/src/loopfilter_tmpl.c \
+    $DAV1D_SRC_ROOT/src/looprestoration_tmpl.c \
+    $DAV1D_SRC_ROOT/src/mc_tmpl.c \
+    $DAV1D_SRC_ROOT/src/lr_apply_tmpl.c \
+    $DAV1D_SRC_ROOT/src/recon_tmpl.c \
+
+    $DAV1D_SRC_ROOT/src/cdef_apply_tmpl.c \
+    $DAV1D_SRC_ROOT/src/cdef_tmpl.c \
+    $DAV1D_SRC_ROOT/src/fg_apply_tmpl.c \
+    $DAV1D_SRC_ROOT/src/filmgrain_tmpl.c \
+    $DAV1D_SRC_ROOT/src/ipred_prepare_tmpl.c \
+    $DAV1D_SRC_ROOT/src/ipred_tmpl.c \
+    $DAV1D_SRC_ROOT/src/lf_apply_tmpl.c \
+    $DAV1D_SRC_ROOT/src/loopfilter_tmpl.c \
+    $DAV1D_SRC_ROOT/src/itx_tmpl.c \
+    $DAV1D_SRC_ROOT/src/looprestoration_tmpl.c \
+    $DAV1D_SRC_ROOT/src/lr_apply_tmpl.c \
+    $DAV1D_SRC_ROOT/src/mc_tmpl.c \
+    $DAV1D_SRC_ROOT/src/recon_tmpl.c \
+
+    $DAV1D_SRC_ROOT/src/cdf.c \
+    $DAV1D_SRC_ROOT/src/cpu.c \
+    $DAV1D_SRC_ROOT/src/ctx.c \
+    $DAV1D_SRC_ROOT/src/data.c \
+    $DAV1D_SRC_ROOT/src/decode.c \
+    $DAV1D_SRC_ROOT/src/dequant_tables.c \
+    $DAV1D_SRC_ROOT/src/getbits.c \
+    $DAV1D_SRC_ROOT/src/intra_edge.c \
+    $DAV1D_SRC_ROOT/src/itx_1d.c \
+    $DAV1D_SRC_ROOT/src/lf_mask.c \
+    $DAV1D_SRC_ROOT/src/lib.c \
+    $DAV1D_SRC_ROOT/src/log.c \
+    $DAV1D_SRC_ROOT/src/mem.c \
+    $DAV1D_SRC_ROOT/src/msac.c \
+    $DAV1D_SRC_ROOT/src/obu.c \
+    $DAV1D_SRC_ROOT/src/pal.c \
+    $DAV1D_SRC_ROOT/src/picture.c \
+    $DAV1D_SRC_ROOT/src/qm.c \
+    $DAV1D_SRC_ROOT/src/refmvs.c \
+    $DAV1D_SRC_ROOT/src/ref.c \
+    $DAV1D_SRC_ROOT/src/scan.c \
+    $DAV1D_SRC_ROOT/src/tables.c \
+    $DAV1D_SRC_ROOT/src/thread_task.c \
+    $DAV1D_SRC_ROOT/src/warpmv.c \
+    $DAV1D_SRC_ROOT/src/wedge.c \
+    $DAV1D_SRC_ROOT/src/x86/cpu.c \
+    $DAV1D_SRC_ROOT/tools/input/input.c \
+    $DAV1D_SRC_ROOT/tools/input/annexb.c \
+    $DAV1D_SRC_ROOT/tools/input/ivf.c \
+    $DAV1D_SRC_ROOT/tools/input/section5.c \
+    $DAV1D_SRC_ROOT/tools/output/md5.c \
+    $DAV1D_SRC_ROOT/tools/output/null.c \
+    $DAV1D_SRC_ROOT/tools/output/output.c \
+    $DAV1D_SRC_ROOT/tools/output/yuv.c \
+    $DAV1D_SRC_ROOT/tools/output/y4m2.c \
+    $DAV1D_SRC_ROOT/tools/output/xxhash.c \
+    $DAV1D_SRC_ROOT/tools/dav1d.c \
+    $DAV1D_SRC_ROOT/tools/dav1d_cli_parse.c

@@ -279,7 +279,10 @@ endif
 
 
 libdav1d_rc_obj = []
-libdav1d_flags = []
+libdav1d_flags = [
+    '-DPKEY=2',
+    '-include../wrapper.h',
+]
 api_export_flags = []
 
 #

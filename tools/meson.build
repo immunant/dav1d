@@ -39,6 +39,11 @@ dav1d_output_sources = files(
     'output/yuv.c',
 )
 
+dav1d_flags = [
+    '-DPKEY=1',
+    '-include../wrapper.h',
+]
+
 # hacky check for xxhash.h to allow copying it to tools/output
 if not get_option('xxhash_muxer').disabled()
     xxhash_include = '-I' + meson.current_source_dir() / 'output'
@@ -55,6 +60,7 @@ dav1d_input_objs = static_library('dav1d_input',
     dav1d_input_sources,
 
     include_directories : dav1d_inc_dirs,
+    c_args: [dav1d_flags],
     install : false,
     build_by_default : false,
 )
@@ -63,6 +69,7 @@ dav1d_output_objs = static_library('dav1d_output',
     dav1d_output_sources,
 
     include_directories : dav1d_inc_dirs,
+    c_args: [dav1d_flags],
     install : false,
     build_by_default : false,
 )
@@ -112,6 +119,9 @@ dav1d = executable('dav1d',
     rev_target, cli_config_h_target,
 
     link_with : [libdav1d, dav1d_input_objs, dav1d_output_objs],
+    link_args: [
+        '../ia2/runtime/libia2/liblibia2.a',
+    ],
     include_directories : [dav1d_inc_dirs],
     dependencies : [
         getopt_dependency,
@@ -119,5 +129,6 @@ dav1d = executable('dav1d',
         rt_dependency,
         libm_dependency,
         ],
+    c_args: [dav1d_flags],
     install : true,
 )
