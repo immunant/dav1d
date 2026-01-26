@@ -325,6 +325,26 @@ if ia2_path != ''
     if ia2_enable
         link_args += [
             '-Wl,@' + join_paths(dav1d_src_root, f'callgate_wrapper_@pkey@.ld'),
+            '-Wl,-wrap,calloc',
+            '-Wl,-wrap,free',
+            '-Wl,-wrap,malloc',
+            '-Wl,-wrap,memalign',
+            '-Wl,-wrap,posix_memalign',
+            '-Wl,-wrap,pvalloc',
+            '-Wl,-wrap,realloc',
+            '-Wl,-wrap,valloc',
+            # Not allocating memory, but part of the API
+            '-Wl,-wrap,malloc_usable_size',
+            # <stdlib.h> functions
+            '-Wl,-wrap,realpath',
+            # <string.h> functions
+            '-Wl,-wrap,strdup',
+            '-Wl,-wrap,strndup',
+            # <unistd.h> functions
+            '-Wl,-wrap,getcwd',
+            # <stdio.h> functions
+            '-Wl,-wrap,asprintf',
+            '-Wl,-wrap,vasprintf',
         ]
     endif
 endif
