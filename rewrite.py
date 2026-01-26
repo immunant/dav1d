@@ -254,6 +254,7 @@ def main(
             ia2_dir,
             "-G",
             "Ninja",
+            f"-DIA2_LIBC_COMPARTMENT=ON",
             f"-DClang_DIR={str(llvm_cmake_dir / ".." / "clang")}",
             f"-DLLVM_DIR={str(llvm_cmake_dir)}",
             f"-DLLVM_EXTERNAL_LIT={str(lit.executable)}",
@@ -311,6 +312,7 @@ def main(
     rewrite = ia2_rewriter[
         "--arch",
         ia2_target_arch,
+        "--libc-compartment",
         "--output-prefix",
         rewritten_dir / "callgate_wrapper",
         "--root-directory",
