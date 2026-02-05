@@ -425,6 +425,7 @@ def main(
             *ia2_path_args,
             *meson_cross_args,
             "-Dia2_enable=true",
+            "-Dia2_libc_compartment=true",
             f"-Dia2_permissive_mode={permissive_mode}",
             f"--buildtype={dav1d_meson_build_type.value}",
         ]()
