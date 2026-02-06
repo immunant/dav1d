@@ -97,4 +97,4 @@ option('ia2_permissive_mode',
 option('ia2_libc_compartment',
     type: 'boolean',
     value: false,
-    description: 'Use the custom IA2 glibc dynamic linker (requires IA2_LIBC_COMPARTMENT)')
+    description: 'Use the custom IA2 glibc dynamic linker (requires libia2 built with IA2_LIBC_COMPARTMENT)')
