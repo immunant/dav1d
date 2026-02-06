@@ -78,6 +78,12 @@ if ia2_path != ''
             '-Wl,-wrap,asprintf',
             '-Wl,-wrap,vasprintf',
         ]
+        if get_option('ia2_libc_compartment')
+            link_args += [
+                '-Wl,--dynamic-linker=' + join_paths(ia2_build_path, 'runtime/libia2/ld-linux-x86-64.so.2'),
+                '-Wl,-rpath,' + join_paths(ia2_build_path, 'runtime/libia2'),
+            ]
+        endif
     endif
 endif
 
