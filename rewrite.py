@@ -444,9 +444,12 @@ def main(
 
     for ldd in parse_ldd(ldd[dav1d]()):
         padded = rpath / ldd.name
-        if padded.exists() and ldd.path.samefile(padded):
-            continue
-        shutil.copy(ldd.path, padded)
+        # Only copy if the library isn't already in rpath (e.g. libdav1d.so is
+        # built directly into rpath by meson, so samefile() is True). Always run
+        # pad-tls regardless — skipping it leaves p_align too small, causing TLS
+        # page sharing between compartments and SIGSEGV during exit cleanup.
+        if not (padded.exists() and ldd.path.samefile(padded)):
+            shutil.copy(ldd.path, padded)
         pad_tls["--allow-no-tls", padded]()
 
 
