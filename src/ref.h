@@ -41,7 +41,7 @@ struct Dav1dRef {
     const void *const_data;
     atomic_int ref_cnt;
     int free_ref;
-    void (*free_callback)(const uint8_t *data, void *user_data);
+    struct IA2_fnptr__ZTSFvPKhPvE free_callback;
     void *user_data;
 };
 
@@ -54,7 +54,7 @@ Dav1dRef *dav1d_ref_create_using_pool(Dav1dMemPool *pool, size_t size);
 void dav1d_ref_dec(Dav1dRef **ref);
 
 static inline Dav1dRef *dav1d_ref_init(Dav1dRef *const ref, const void *const ptr,
-                                       void (*const free_callback)(const uint8_t *data, void *user_data),
+                                       struct IA2_fnptr__ZTSFvPKhPvE free_callback,
                                        void *const user_data, const int free_ref)
 {
     ref->data = NULL;

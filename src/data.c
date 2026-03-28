@@ -56,13 +56,12 @@ uint8_t *dav1d_data_create_internal(Dav1dData *const buf, const size_t sz) {
 
 int dav1d_data_wrap_internal(Dav1dData *const buf, const uint8_t *const ptr,
                              const size_t sz,
-                             void (*const free_callback)(const uint8_t *data,
-                                                         void *cookie),
+                             struct IA2_fnptr__ZTSFvPKhPvE free_callback,
                              void *const cookie)
 {
     validate_input_or_ret(buf != NULL, DAV1D_ERR(EINVAL));
     validate_input_or_ret(ptr != NULL, DAV1D_ERR(EINVAL));
-    validate_input_or_ret(free_callback != NULL, DAV1D_ERR(EINVAL));
+    validate_input_or_ret(IA2_ADDR(free_callback) != NULL, DAV1D_ERR(EINVAL));
 
     if (sz > SIZE_MAX / 2) return DAV1D_ERR(EINVAL);
     Dav1dRef *const ref = dav1d_malloc(ALLOC_DAV1DDATA, sizeof(Dav1dRef));
@@ -79,12 +78,11 @@ int dav1d_data_wrap_internal(Dav1dData *const buf, const uint8_t *const ptr,
 
 int dav1d_data_wrap_user_data_internal(Dav1dData *const buf,
                                        const uint8_t *const user_data,
-                                       void (*const free_callback)(const uint8_t *user_data,
-                                                                   void *cookie),
+                                       struct IA2_fnptr__ZTSFvPKhPvE free_callback,
                                        void *const cookie)
 {
     validate_input_or_ret(buf != NULL, DAV1D_ERR(EINVAL));
-    validate_input_or_ret(free_callback != NULL, DAV1D_ERR(EINVAL));
+    validate_input_or_ret(IA2_ADDR(free_callback) != NULL, DAV1D_ERR(EINVAL));
 
     Dav1dRef *const ref = dav1d_malloc(ALLOC_DAV1DDATA, sizeof(Dav1dRef));
     if (!ref) return DAV1D_ERR(ENOMEM);

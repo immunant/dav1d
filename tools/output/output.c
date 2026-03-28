@@ -146,8 +146,8 @@ int output_open(MuxerContext **const c_out,
         c->fps[1] = fps[1];
         c->filename = filename;
         c->framenum = 0;
-    } else if (impl->write_header &&
-               (res = impl->write_header(c->data, filename, p, fps)) < 0)
+    } else if (IA2_ADDR(impl->write_header) &&
+               (res = IA2_CALL(impl->write_header, _ZTSPFiP9MuxerPrivPKcPK22Dav1dPictureParametersPKjE, c->data, filename, p, fps)) < 0)
     {
         free(c);
         return res;
@@ -232,30 +232,30 @@ static void assemble_filename(MuxerContext *const ctx, char *const filename,
 int output_write(MuxerContext *const ctx, Dav1dPicture *const p) {
     int res;
 
-    if (ctx->one_file_per_frame && ctx->impl->write_header) {
+    if (ctx->one_file_per_frame && IA2_ADDR(ctx->impl->write_header)) {
         char filename[1024];
         assemble_filename(ctx, filename, sizeof(filename), &p->p);
-        res = ctx->impl->write_header(ctx->data, filename, &p->p, ctx->fps);
+        res = IA2_CALL(ctx->impl->write_header, _ZTSPFiP9MuxerPrivPKcPK22Dav1dPictureParametersPKjE, ctx->data, filename, &p->p, ctx->fps);
         if (res < 0)
             return res;
     }
-    if ((res = ctx->impl->write_picture(ctx->data, p)) < 0)
+    if ((res = IA2_CALL(ctx->impl->write_picture, _ZTSPFiP9MuxerPrivP12Dav1dPictureE, ctx->data, p)) < 0)
         return res;
-    if (ctx->one_file_per_frame && ctx->impl->write_trailer)
-        ctx->impl->write_trailer(ctx->data);
+    if (ctx->one_file_per_frame && IA2_ADDR(ctx->impl->write_trailer))
+        IA2_CALL(ctx->impl->write_trailer, _ZTSPFvP9MuxerPrivE, ctx->data);
 
     return 0;
 }
 
 void output_close(MuxerContext *const ctx) {
-    if (!ctx->one_file_per_frame && ctx->impl->write_trailer)
-        ctx->impl->write_trailer(ctx->data);
+    if (!ctx->one_file_per_frame && IA2_ADDR(ctx->impl->write_trailer))
+        IA2_CALL(ctx->impl->write_trailer, _ZTSPFvP9MuxerPrivE, ctx->data);
     free(ctx);
 }
 
 int output_verify(MuxerContext *const ctx, const char *const md5_str) {
-    const int res = ctx->impl->verify ?
-        ctx->impl->verify(ctx->data, md5_str) : 0;
+    const int res = IA2_ADDR(ctx->impl->verify) ?
+        IA2_CALL(ctx->impl->verify, _ZTSPFiP9MuxerPrivPKcE, ctx->data, md5_str) : 0;
     free(ctx);
     return res;
 }

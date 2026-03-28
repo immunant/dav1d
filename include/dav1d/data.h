@@ -69,7 +69,7 @@ DAV1D_API uint8_t * dav1d_data_create(Dav1dData *data, size_t sz);
  * @return 0 on success. A negative DAV1D_ERR value on error.
  */
 DAV1D_API int dav1d_data_wrap(Dav1dData *data, const uint8_t *buf, size_t sz,
-                              void (*free_callback)(const uint8_t *buf, void *cookie),
+                              struct IA2_fnptr__ZTSFvPKhPvE free_callback,
                               void *cookie);
 
 /**
@@ -95,8 +95,7 @@ DAV1D_API int dav1d_data_wrap(Dav1dData *data, const uint8_t *buf, size_t sz,
  */
 DAV1D_API int dav1d_data_wrap_user_data(Dav1dData *data,
                                         const uint8_t *user_data,
-                                        void (*free_callback)(const uint8_t *user_data,
-                                                              void *cookie),
+                                        struct IA2_fnptr__ZTSFvPKhPvE free_callback,
                                         void *cookie);
 
 /**

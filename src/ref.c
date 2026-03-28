@@ -29,7 +29,7 @@
 
 #include "src/ref.h"
 
-static void default_free_callback(const uint8_t *const data, void *const user_data) {
+__attribute__((used)) static void default_free_callback(const uint8_t *const data, void *const user_data) {
     assert(data == user_data);
     dav1d_free_aligned(user_data);
 }
@@ -44,12 +44,12 @@ Dav1dRef *dav1d_ref_create(const enum AllocationType type, size_t size) {
     res->const_data = res->user_data = res->data = data;
     atomic_init(&res->ref_cnt, 1);
     res->free_ref = 0;
-    res->free_callback = default_free_callback;
+    res->free_callback = IA2_FN(default_free_callback);
 
     return res;
 }
 
-static void pool_free_callback(const uint8_t *const data, void *const user_data) {
+__attribute__((used)) static void pool_free_callback(const uint8_t *const data, void *const user_data) {
     dav1d_mem_pool_push((Dav1dMemPool*)data, user_data);
 }
 
@@ -65,7 +65,7 @@ Dav1dRef *dav1d_ref_create_using_pool(Dav1dMemPool *const pool, size_t size) {
     res->const_data = pool;
     atomic_init(&res->ref_cnt, 1);
     res->free_ref = 0;
-    res->free_callback = pool_free_callback;
+    res->free_callback = IA2_FN(pool_free_callback);
     res->user_data = buf;
 
     return res;
@@ -80,7 +80,9 @@ void dav1d_ref_dec(Dav1dRef **const pref) {
     *pref = NULL;
     if (atomic_fetch_sub(&ref->ref_cnt, 1) == 1) {
         const int free_ref = ref->free_ref;
-        ref->free_callback(ref->const_data, ref->user_data);
+        IA2_CALL(ref->free_callback, _ZTSPFvPKhPvE, ref->const_data, ref->user_data);
         if (free_ref) dav1d_free(ref);
     }
 }
+IA2_DEFINE_WRAPPER(default_free_callback)
+IA2_DEFINE_WRAPPER(pool_free_callback)

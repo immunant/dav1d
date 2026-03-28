@@ -93,12 +93,11 @@ struct pic_ctx_context {
     void *extra_data[];
 };
 
-static void free_buffer(const uint8_t *const data, void *const user_data) {
+__attribute__((used)) static void free_buffer(const uint8_t *const data, void *const user_data) {
     Dav1dMemPoolBuffer *buf = (Dav1dMemPoolBuffer *)data;
     struct pic_ctx_context *pic_ctx = buf->data;
 
-    pic_ctx->allocator.release_picture_callback(&pic_ctx->pic,
-                                                pic_ctx->allocator.cookie);
+    IA2_CALL(pic_ctx->allocator.release_picture_callback, _ZTSPFvP12Dav1dPicturePvE, &pic_ctx->pic, pic_ctx->allocator.cookie);
     dav1d_mem_pool_push(user_data, buf);
 }
 
@@ -142,7 +141,7 @@ static int picture_alloc(Dav1dContext *const c,
     p->p.layout = seq_hdr->layout;
     p->p.bpc = bpc;
     dav1d_data_props_set_defaults(&p->m);
-    const int res = p_allocator->alloc_picture_callback(p, p_allocator->cookie);
+    const int res = IA2_CALL(p_allocator->alloc_picture_callback, _ZTSPFiP12Dav1dPicturePvE, p, p_allocator->cookie);
     if (res < 0) {
         dav1d_mem_pool_push(c->pic_ctx_pool, buf);
         return res;
@@ -150,7 +149,7 @@ static int picture_alloc(Dav1dContext *const c,
 
     pic_ctx->allocator = *p_allocator;
     pic_ctx->pic = *p;
-    p->ref = dav1d_ref_init(&pic_ctx->ref, buf, free_buffer, c->pic_ctx_pool, 0);
+    p->ref = dav1d_ref_init(&pic_ctx->ref, buf, IA2_FN(free_buffer), c->pic_ctx_pool, 0);
 
     p->seq_hdr_ref = seq_hdr_ref;
     if (seq_hdr_ref) dav1d_ref_inc(seq_hdr_ref);
@@ -340,3 +339,7 @@ enum Dav1dEventFlags dav1d_picture_get_event_flags(const Dav1dThreadPicture *con
 
     return flags;
 }
+IA2_DEFINE_WRAPPER(dav1d_default_picture_alloc)
+IA2_DEFINE_WRAPPER(dav1d_default_picture_release)
+IA2_DEFINE_WRAPPER(dav1d_picture_free_itut_t35)
+IA2_DEFINE_WRAPPER(free_buffer)

@@ -89,7 +89,7 @@ typedef struct MuxerPriv {
 #endif
 } MD5Context;
 
-static int md5_open(MD5Context *const md5, const char *const file,
+__attribute__((used)) static int md5_open(MD5Context *const md5, const char *const file,
                     const Dav1dPictureParameters *const p,
                     const unsigned fps[2])
 {
@@ -191,7 +191,7 @@ static void md5_update(MD5Context *const md5, const uint8_t *data, unsigned len)
     }
 }
 
-static int md5_write(MD5Context *const md5, Dav1dPicture *const p) {
+__attribute__((used)) static int md5_write(MD5Context *const md5, Dav1dPicture *const p) {
     const int hbd = p->p.bpc > 8;
     const int w = p->p.w, h = p->p.h;
     uint8_t *yptr = p->data[0];
@@ -259,7 +259,7 @@ static void md5_finish(MD5Context *const md5) {
     md5_update(md5, (const uint8_t *) &len, 8);
 }
 
-static void md5_close(MD5Context *const md5) {
+__attribute__((used)) static void md5_close(MD5Context *const md5) {
     md5_finish(md5);
     for (int i = 0; i < 4; i++)
         fprintf(md5->f, "%2.2x%2.2x%2.2x%2.2x",
@@ -278,7 +278,7 @@ static void md5_close(MD5Context *const md5) {
         fclose(md5->f);
 }
 
-static int md5_verify(MD5Context *const md5, const char *md5_str) {
+__attribute__((used)) static int md5_verify(MD5Context *const md5, const char *md5_str) {
     md5_finish(md5);
 
     if (strlen(md5_str) < 32)
@@ -307,8 +307,12 @@ const Muxer md5_muxer = {
     .priv_data_size = sizeof(MD5Context),
     .name = "md5",
     .extension = "md5",
-    .write_header = md5_open,
-    .write_picture = md5_write,
-    .write_trailer = md5_close,
-    .verify = md5_verify,
+    .write_header = IA2_FN(md5_open),
+    .write_picture = IA2_FN(md5_write),
+    .write_trailer = IA2_FN(md5_close),
+    .verify = IA2_FN(md5_verify),
 };
+IA2_DEFINE_WRAPPER(md5_close)
+IA2_DEFINE_WRAPPER(md5_open)
+IA2_DEFINE_WRAPPER(md5_verify)
+IA2_DEFINE_WRAPPER(md5_write)

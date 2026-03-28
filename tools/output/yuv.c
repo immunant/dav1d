@@ -38,7 +38,7 @@ typedef struct MuxerPriv {
     FILE *f;
 } YuvOutputContext;
 
-static int yuv_open(YuvOutputContext *const c, const char *const file,
+__attribute__((used)) static int yuv_open(YuvOutputContext *const c, const char *const file,
                     const Dav1dPictureParameters *const p,
                     const unsigned fps[2])
 {
@@ -52,7 +52,7 @@ static int yuv_open(YuvOutputContext *const c, const char *const file,
     return 0;
 }
 
-static int yuv_write(YuvOutputContext *const c, Dav1dPicture *const p) {
+__attribute__((used)) static int yuv_write(YuvOutputContext *const c, Dav1dPicture *const p) {
     uint8_t *ptr;
     const int hbd = p->p.bpc > 8;
 
@@ -88,7 +88,7 @@ error:
     return -1;
 }
 
-static void yuv_close(YuvOutputContext *const c) {
+__attribute__((used)) static void yuv_close(YuvOutputContext *const c) {
     if (c->f != stdout)
         fclose(c->f);
 }
@@ -97,7 +97,10 @@ const Muxer yuv_muxer = {
     .priv_data_size = sizeof(YuvOutputContext),
     .name = "yuv",
     .extension = "yuv",
-    .write_header = yuv_open,
-    .write_picture = yuv_write,
-    .write_trailer = yuv_close,
+    .write_header = IA2_FN(yuv_open),
+    .write_picture = IA2_FN(yuv_write),
+    .write_trailer = IA2_FN(yuv_close),
 };
+IA2_DEFINE_WRAPPER(yuv_close)
+IA2_DEFINE_WRAPPER(yuv_open)
+IA2_DEFINE_WRAPPER(yuv_write)

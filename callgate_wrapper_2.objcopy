@@ -1,0 +1,16 @@
+__getdelim __getdelim_from_2
+__overflow __overflow_from_2
+__uflow __uflow_from_2
+dl_iterate_phdr dl_iterate_phdr_from_2
+dladdr dladdr_from_2
+dladdr1 dladdr1_from_2
+dlclose dlclose_from_2
+dlerror dlerror_from_2
+dlinfo dlinfo_from_2
+dlmopen dlmopen_from_2
+dlopen dlopen_from_2
+dlsym dlsym_from_2
+dlvsym dlvsym_from_2
+getc getc_from_2
+pkey_mprotect pkey_mprotect_from_2
+putc putc_from_2

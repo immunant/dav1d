@@ -35,12 +35,11 @@ typedef struct Demuxer {
     int priv_data_size;
     const char *name;
     int probe_sz;
-    int (*probe)(const uint8_t *data);
-    int (*open)(DemuxerPriv *ctx, const char *filename,
-                unsigned fps[2], unsigned *num_frames, unsigned timebase[2]);
-    int (*read)(DemuxerPriv *ctx, Dav1dData *data);
-    int (*seek)(DemuxerPriv *ctx, uint64_t pts);
-    void (*close)(DemuxerPriv *ctx);
+    struct IA2_fnptr__ZTSFiPKhE probe;
+    struct IA2_fnptr__ZTSFiP11DemuxerPrivPKcPjS3_S3_E open;
+    struct IA2_fnptr__ZTSFiP11DemuxerPrivP9Dav1dDataE read;
+    struct IA2_fnptr__ZTSFiP11DemuxerPrivmE seek;
+    struct IA2_fnptr__ZTSFvP11DemuxerPrivE close;
 } Demuxer;
 
 #endif /* DAV1D_INPUT_DEMUXER_H */

@@ -96,7 +96,7 @@ int input_open(DemuxerContext **const c_out,
         }
 
         for (i = 0; demuxers[i]; i++) {
-            if (demuxers[i]->probe(probe_data)) {
+            if (IA2_CALL(demuxers[i]->probe, _ZTSPFiPKhE, probe_data)) {
                 impl = demuxers[i];
                 break;
             }
@@ -116,7 +116,7 @@ int input_open(DemuxerContext **const c_out,
     }
     c->impl = impl;
     c->data = (DemuxerPriv *) c->priv_data;
-    if ((res = impl->open(c->data, filename, fps, num_frames, timebase)) < 0) {
+    if ((res = IA2_CALL(impl->open, _ZTSPFiP11DemuxerPrivPKcPjS3_S3_E, c->data, filename, fps, num_frames, timebase)) < 0) {
         free(c);
         return res;
     }
@@ -126,14 +126,14 @@ int input_open(DemuxerContext **const c_out,
 }
 
 int input_read(DemuxerContext *const ctx, Dav1dData *const data) {
-    return ctx->impl->read(ctx->data, data);
+    return IA2_CALL(ctx->impl->read, _ZTSPFiP11DemuxerPrivP9Dav1dDataE, ctx->data, data);
 }
 
 int input_seek(DemuxerContext *const ctx, const uint64_t pts) {
-    return ctx->impl->seek ? ctx->impl->seek(ctx->data, pts) : -1;
+    return IA2_ADDR(ctx->impl->seek) ? IA2_CALL(ctx->impl->seek, _ZTSPFiP11DemuxerPrivmE, ctx->data, pts) : -1;
 }
 
 void input_close(DemuxerContext *const ctx) {
-    ctx->impl->close(ctx->data);
+    IA2_CALL(ctx->impl->close, _ZTSPFvP11DemuxerPrivE, ctx->data);
     free(ctx);
 }

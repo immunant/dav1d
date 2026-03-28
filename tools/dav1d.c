@@ -154,7 +154,7 @@ static void print_stats(const int istty, const unsigned n, const unsigned num,
     fputs(buf, stderr);
 }
 
-static int picture_alloc(Dav1dPicture *const p, void *const _) {
+__attribute__((used)) static int picture_alloc(Dav1dPicture *const p, void *const _) {
     const int hbd = p->p.bpc > 8;
     const int aligned_w = (p->p.w + 127) & ~127;
     const int aligned_h = (p->p.h + 127) & ~127;
@@ -191,12 +191,12 @@ static int picture_alloc(Dav1dPicture *const p, void *const _) {
     return 0;
 }
 
-static void picture_release(Dav1dPicture *const p, void *const _) {
+__attribute__((used)) static void picture_release(Dav1dPicture *const p, void *const _) {
     free(p->allocator_data);
 }
 
 static volatile sig_atomic_t signal_terminate;
-static void signal_handler(const int s) {
+__attribute__((used)) static void signal_handler(const int s) {
     signal_terminate = 1;
 }
 
@@ -234,8 +234,8 @@ int main(const int argc, char *const *const argv) {
 
     parse(argc, argv, &cli_settings, &lib_settings);
     if (cli_settings.neg_stride) {
-        lib_settings.allocator.alloc_picture_callback = picture_alloc;
-        lib_settings.allocator.release_picture_callback = picture_release;
+        lib_settings.allocator.alloc_picture_callback = IA2_FN(picture_alloc);
+        lib_settings.allocator.release_picture_callback = IA2_FN(picture_release);
     }
 
     if ((res = input_open(&in, cli_settings.demuxer,
@@ -407,3 +407,6 @@ int main(const int argc, char *const *const argv) {
 
     return (res == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+IA2_DEFINE_WRAPPER(picture_alloc)
+IA2_DEFINE_WRAPPER(picture_release)
+IA2_DEFINE_WRAPPER(signal_handler)

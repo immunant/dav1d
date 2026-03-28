@@ -130,7 +130,7 @@ typedef struct Dav1dPicAllocator {
      *       by this callback.
      * @return 0 on success. A negative DAV1D_ERR value on error.
      */
-    int (*alloc_picture_callback)(Dav1dPicture *pic, void *cookie);
+    struct IA2_fnptr__ZTSFiP12Dav1dPicturePvE alloc_picture_callback;
     /**
      * Release the picture buffer.
      *
@@ -142,7 +142,7 @@ typedef struct Dav1dPicAllocator {
      * @param pic    The picture that was filled by alloc_picture_callback().
      * @param cookie Custom pointer passed to all calls.
      */
-    void (*release_picture_callback)(Dav1dPicture *pic, void *cookie);
+    struct IA2_fnptr__ZTSFvP12Dav1dPicturePvE release_picture_callback;
 } Dav1dPicAllocator;
 
 /**

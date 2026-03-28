@@ -46,12 +46,13 @@ COLD void dav1d_log_default_callback(void *const cookie,
 COLD void dav1d_log(Dav1dContext *const c, const char *const format, ...) {
     assert(c != NULL);
 
-    if (!c->logger.callback)
+    if (!IA2_ADDR(c->logger.callback))
         return;
 
     va_list ap;
     va_start(ap, format);
-    c->logger.callback(c->logger.cookie, format, ap);
+    IA2_CALL(c->logger.callback, _ZTSPFvPvPKcP13__va_list_tagE, c->logger.cookie, format, ap);
     va_end(ap);
 }
 #endif
+IA2_DEFINE_WRAPPER(dav1d_log_default_callback)

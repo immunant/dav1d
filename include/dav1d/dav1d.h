@@ -55,7 +55,7 @@ typedef struct Dav1dLogger {
      * @param format The vprintf compatible format string.
      * @param     ap List of arguments referenced by the format string.
      */
-    void (*callback)(void *cookie, const char *format, va_list ap);
+    struct IA2_fnptr__ZTSFvPvPKcP13__va_list_tagE callback;
 } Dav1dLogger;
 
 enum Dav1dInloopFilterType {
