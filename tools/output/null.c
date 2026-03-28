@@ -31,7 +31,7 @@
 
 typedef struct MuxerPriv NullOutputContext;
 
-__attribute__((used)) static int null_write(NullOutputContext *const c, Dav1dPicture *const p) {
+static int null_write(NullOutputContext *const c, Dav1dPicture *const p) {
     dav1d_picture_unref(p);
     return 0;
 }
@@ -40,6 +40,5 @@ const Muxer null_muxer = {
     .priv_data_size = 0,
     .name = "null",
     .extension = "null",
-    .write_picture = IA2_FN(null_write),
+    .write_picture = null_write,
 };
-IA2_DEFINE_WRAPPER(null_write)

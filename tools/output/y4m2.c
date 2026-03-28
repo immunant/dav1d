@@ -41,7 +41,7 @@ typedef struct MuxerPriv {
     unsigned fps[2];
 } Y4m2OutputContext;
 
-__attribute__((used)) static int y4m2_open(Y4m2OutputContext *const c, const char *const file,
+static int y4m2_open(Y4m2OutputContext *const c, const char *const file,
                      const Dav1dPictureParameters *p, const unsigned fps[2])
 {
     if (!strcmp(file, "-")) {
@@ -92,7 +92,7 @@ static int write_header(Y4m2OutputContext *const c, const Dav1dPicture *const p)
     return 0;
 }
 
-__attribute__((used)) static int y4m2_write(Y4m2OutputContext *const c, Dav1dPicture *const p) {
+static int y4m2_write(Y4m2OutputContext *const c, Dav1dPicture *const p) {
     if (c->first) {
         c->first = 0;
         const int res = write_header(c, p);
@@ -135,7 +135,7 @@ error:
     return -1;
 }
 
-__attribute__((used)) static void y4m2_close(Y4m2OutputContext *const c) {
+static void y4m2_close(Y4m2OutputContext *const c) {
     if (c->f != stdout)
         fclose(c->f);
 }
@@ -144,10 +144,7 @@ const Muxer y4m2_muxer = {
     .priv_data_size = sizeof(Y4m2OutputContext),
     .name = "yuv4mpeg2",
     .extension = "y4m",
-    .write_header = IA2_FN(y4m2_open),
-    .write_picture = IA2_FN(y4m2_write),
-    .write_trailer = IA2_FN(y4m2_close),
+    .write_header = y4m2_open,
+    .write_picture = y4m2_write,
+    .write_trailer = y4m2_close,
 };
-IA2_DEFINE_WRAPPER(y4m2_close)
-IA2_DEFINE_WRAPPER(y4m2_open)
-IA2_DEFINE_WRAPPER(y4m2_write)
