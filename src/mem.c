@@ -31,6 +31,9 @@
 
 #include "src/internal.h"
 
+void *shared_malloc(size_t bytes);
+void shared_free(void *ptr);
+
 #if TRACK_HEAP_ALLOCATIONS
 #include <stdio.h>
 
@@ -217,20 +220,21 @@ COLD void dav1d_log_alloc_stats(Dav1dContext *const c) {
 #endif /* TRACK_HEAP_ALLOCATIONS */
 
 static COLD void mem_pool_destroy(Dav1dMemPool *const pool) {
-    pthread_mutex_destroy(&pool->lock);
+    pthread_mutex_destroy(pool->lock);
+    shared_free(pool->lock);
     dav1d_free(pool);
 }
 
 void dav1d_mem_pool_push(Dav1dMemPool *const pool, Dav1dMemPoolBuffer *const buf) {
-    pthread_mutex_lock(&pool->lock);
+    pthread_mutex_lock(pool->lock);
     const int ref_cnt = --pool->ref_cnt;
     if (!pool->end) {
         buf->next = pool->buf;
         pool->buf = buf;
-        pthread_mutex_unlock(&pool->lock);
+        pthread_mutex_unlock(pool->lock);
         assert(ref_cnt > 0);
     } else {
-        pthread_mutex_unlock(&pool->lock);
+        pthread_mutex_unlock(pool->lock);
         dav1d_free_aligned(buf->data);
         if (!ref_cnt) mem_pool_destroy(pool);
     }
@@ -238,13 +242,13 @@ void dav1d_mem_pool_push(Dav1dMemPool *const pool, Dav1dMemPoolBuffer *const buf
 
 Dav1dMemPoolBuffer *dav1d_mem_pool_pop(Dav1dMemPool *const pool, const size_t size) {
     assert(!(size & (sizeof(void*) - 1)));
-    pthread_mutex_lock(&pool->lock);
+    pthread_mutex_lock(pool->lock);
     Dav1dMemPoolBuffer *buf = pool->buf;
     pool->ref_cnt++;
     uint8_t *data;
     if (buf) {
         pool->buf = buf->next;
-        pthread_mutex_unlock(&pool->lock);
+        pthread_mutex_unlock(pool->lock);
         data = buf->data;
         if ((uintptr_t)buf - (uintptr_t)data != size) {
             /* Reallocate if the size has changed */
@@ -255,14 +259,14 @@ Dav1dMemPoolBuffer *dav1d_mem_pool_pop(Dav1dMemPool *const pool, const size_t si
         dav1d_track_reuse(pool->type);
 #endif
     } else {
-        pthread_mutex_unlock(&pool->lock);
+        pthread_mutex_unlock(pool->lock);
 alloc:
         data = dav1d_alloc_aligned(pool->type,
                                    size + sizeof(Dav1dMemPoolBuffer), 64);
         if (!data) {
-            pthread_mutex_lock(&pool->lock);
+            pthread_mutex_lock(pool->lock);
             const int ref_cnt = --pool->ref_cnt;
-            pthread_mutex_unlock(&pool->lock);
+            pthread_mutex_unlock(pool->lock);
             if (!ref_cnt) mem_pool_destroy(pool);
             return NULL;
         }
@@ -279,7 +283,8 @@ COLD int dav1d_mem_pool_init(const enum AllocationType type,
     Dav1dMemPool *const pool = dav1d_malloc(ALLOC_COMMON_CTX,
                                             sizeof(Dav1dMemPool));
     if (pool) {
-        if (!pthread_mutex_init(&pool->lock, NULL)) {
+        pool->lock = shared_malloc(sizeof(*pool->lock));
+        if (pool->lock && !pthread_mutex_init(pool->lock, NULL)) {
             pool->buf = NULL;
             pool->ref_cnt = 1;
             pool->end = 0;
@@ -289,6 +294,7 @@ COLD int dav1d_mem_pool_init(const enum AllocationType type,
             *ppool = pool;
             return 0;
         }
+        if (pool->lock) shared_free(pool->lock);
         dav1d_free(pool);
     }
     *ppool = NULL;
@@ -297,12 +303,12 @@ COLD int dav1d_mem_pool_init(const enum AllocationType type,
 
 COLD void dav1d_mem_pool_end(Dav1dMemPool *const pool) {
     if (pool) {
-        pthread_mutex_lock(&pool->lock);
+        pthread_mutex_lock(pool->lock);
         Dav1dMemPoolBuffer *buf = pool->buf;
         const int ref_cnt = --pool->ref_cnt;
         pool->buf = NULL;
         pool->end = 1;
-        pthread_mutex_unlock(&pool->lock);
+        pthread_mutex_unlock(pool->lock);
 
         while (buf) {
             void *const data = buf->data;

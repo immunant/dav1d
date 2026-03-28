@@ -39,6 +39,13 @@
 #include <dlfcn.h>
 #endif
 
+#if defined(__linux__) && HAVE_DLSYM && defined(__GLIBC__)
+extern void *__wrap_dlsym_from_2(void *handle, const char *name) __attribute__((weak));
+#endif
+
+void *shared_malloc(size_t bytes);
+void shared_free(void *ptr);
+
 #include "dav1d/dav1d.h"
 #include "dav1d/data.h"
 
@@ -54,7 +61,7 @@
 #include "src/thread_task.h"
 #include "src/wedge.h"
 
-static COLD void init_internal(void) {
+__attribute__((used)) static COLD void init_internal(void) {
     dav1d_init_cpu();
     dav1d_init_ii_wedge_masks();
     dav1d_init_intra_edge_tree();
@@ -77,10 +84,10 @@ COLD void dav1d_default_settings(Dav1dSettings *const s) {
     s->max_frame_delay = 0;
     s->apply_grain = 1;
     s->allocator.cookie = NULL;
-    s->allocator.alloc_picture_callback = dav1d_default_picture_alloc;
-    s->allocator.release_picture_callback = dav1d_default_picture_release;
+    s->allocator.alloc_picture_callback = IA2_FN(dav1d_default_picture_alloc);
+    s->allocator.release_picture_callback = IA2_FN(dav1d_default_picture_release);
     s->logger.cookie = NULL;
-    s->logger.callback = dav1d_log_default_callback;
+    s->logger.callback = IA2_FN(dav1d_log_default_callback);
     s->operating_point = 0;
     s->all_layers = 1; // just until the tests are adjusted
     s->frame_size_limit = 0;
@@ -100,10 +107,13 @@ static COLD size_t get_stack_size_internal(const pthread_attr_t *const thread_at
      * size may be insufficient when used in an application with large amounts
      * of TLS data. The following is a workaround to compensate for that.
      * See https://sourceware.org/bugzilla/show_bug.cgi?id=11787 */
-    size_t (*const get_minstack)(const pthread_attr_t*) =
+    void *get_minstack_sym = __wrap_dlsym_from_2 ?
+        __wrap_dlsym_from_2(RTLD_DEFAULT, "__pthread_get_minstack") :
         dlsym(RTLD_DEFAULT, "__pthread_get_minstack");
-    if (get_minstack)
-        return get_minstack(thread_attr) - PTHREAD_STACK_MIN;
+    struct IA2_fnptr__ZTSFmPK14pthread_attr_tE get_minstack =
+        (struct IA2_fnptr__ZTSFmPK14pthread_attr_tE) { .ptr = get_minstack_sym };
+    if (IA2_ADDR(get_minstack))
+        return IA2_CALL(get_minstack, _ZTSPFmPK14pthread_attr_tE, thread_attr) - PTHREAD_STACK_MIN;
 #endif
     return 0;
 }
@@ -140,7 +150,7 @@ COLD int dav1d_get_frame_delay(const Dav1dSettings *const s) {
 }
 
 COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
-    static pthread_once_t initted = PTHREAD_ONCE_INIT;
+    static pthread_once_t initted IA2_SHARED_DATA = PTHREAD_ONCE_INIT;
     pthread_once(&initted, IA2_IGNORE(init_internal));
 
     validate_input_or_ret(c_out != NULL, DAV1D_ERR(EINVAL));
@@ -149,20 +159,24 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
                           s->n_threads <= DAV1D_MAX_THREADS, DAV1D_ERR(EINVAL));
     validate_input_or_ret(s->max_frame_delay >= 0 &&
                           s->max_frame_delay <= DAV1D_MAX_FRAME_DELAY, DAV1D_ERR(EINVAL));
-    validate_input_or_ret(s->allocator.alloc_picture_callback != NULL,
+    validate_input_or_ret(IA2_ADDR(s->allocator.alloc_picture_callback) != NULL,
                           DAV1D_ERR(EINVAL));
-    validate_input_or_ret(s->allocator.release_picture_callback != NULL,
+    validate_input_or_ret(IA2_ADDR(s->allocator.release_picture_callback) != NULL,
                           DAV1D_ERR(EINVAL));
     validate_input_or_ret(s->operating_point >= 0 &&
                           s->operating_point <= 31, DAV1D_ERR(EINVAL));
     validate_input_or_ret(s->decode_frame_type >= DAV1D_DECODEFRAMETYPE_ALL &&
                           s->decode_frame_type <= DAV1D_DECODEFRAMETYPE_KEY, DAV1D_ERR(EINVAL));
 
-    pthread_attr_t thread_attr;
-    if (pthread_attr_init(&thread_attr)) return DAV1D_ERR(ENOMEM);
-    size_t stack_size = 1024 * 1024 + get_stack_size_internal(&thread_attr);
+    pthread_attr_t *thread_attr = shared_malloc(sizeof(*thread_attr));
+    if (!thread_attr) return DAV1D_ERR(ENOMEM);
+    if (pthread_attr_init(thread_attr)) {
+        shared_free(thread_attr);
+        return DAV1D_ERR(ENOMEM);
+    }
+    size_t stack_size = 1024 * 1024 + get_stack_size_internal(thread_attr);
 
-    pthread_attr_setstacksize(&thread_attr, stack_size);
+    pthread_attr_setstacksize(thread_attr, stack_size);
 
     Dav1dContext *const c = *c_out = dav1d_alloc_aligned(ALLOC_COMMON_CTX, sizeof(*c), 64);
     if (!c) goto error;
@@ -191,14 +205,14 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
         goto error;
     }
 
-    if (c->allocator.alloc_picture_callback   == dav1d_default_picture_alloc &&
-        c->allocator.release_picture_callback == dav1d_default_picture_release)
+    if (IA2_ADDR(c->allocator.alloc_picture_callback)   == IA2_FN_ADDR(dav1d_default_picture_alloc) &&
+        IA2_ADDR(c->allocator.release_picture_callback) == IA2_FN_ADDR(dav1d_default_picture_release))
     {
         if (c->allocator.cookie) goto error;
         if (dav1d_mem_pool_init(ALLOC_PIC, &c->picture_pool)) goto error;
         c->allocator.cookie = c->picture_pool;
-    } else if (c->allocator.alloc_picture_callback   == dav1d_default_picture_alloc ||
-               c->allocator.release_picture_callback == dav1d_default_picture_release)
+    } else if (IA2_ADDR(c->allocator.alloc_picture_callback)   == IA2_FN_ADDR(dav1d_default_picture_alloc) ||
+               IA2_ADDR(c->allocator.release_picture_callback) == IA2_FN_ADDR(dav1d_default_picture_release))
     {
         goto error;
     }
@@ -281,7 +295,7 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
                 pthread_mutex_destroy(&t->task_thread.td.lock);
                 goto error;
             }
-            if (pthread_create(&t->task_thread.td.thread, &thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
+            if (pthread_create(&t->task_thread.td.thread, thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
                 pthread_cond_destroy(&t->task_thread.td.cond);
                 pthread_mutex_destroy(&t->task_thread.td.lock);
                 goto error;
@@ -292,13 +306,15 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     dav1d_pal_dsp_init(&c->pal_dsp);
     dav1d_refmvs_dsp_init(&c->refmvs_dsp);
 
-    pthread_attr_destroy(&thread_attr);
+    pthread_attr_destroy(thread_attr);
+    shared_free(thread_attr);
 
     return 0;
 
 error:
     if (c) close_internal(c_out, 0);
-    pthread_attr_destroy(&thread_attr);
+    pthread_attr_destroy(thread_attr);
+    shared_free(thread_attr);
     return DAV1D_ERR(ENOMEM);
 }
 
@@ -736,8 +752,7 @@ uint8_t *dav1d_data_create(Dav1dData *const buf, const size_t sz) {
 
 int dav1d_data_wrap(Dav1dData *const buf, const uint8_t *const ptr,
                     const size_t sz,
-                    void (*const free_callback)(const uint8_t *data,
-                                                void *user_data),
+                    struct IA2_fnptr__ZTSFvPKhPvE free_callback,
                     void *const user_data)
 {
     return dav1d_data_wrap_internal(buf, ptr, sz, free_callback, user_data);
@@ -745,8 +760,7 @@ int dav1d_data_wrap(Dav1dData *const buf, const uint8_t *const ptr,
 
 int dav1d_data_wrap_user_data(Dav1dData *const buf,
                               const uint8_t *const user_data,
-                              void (*const free_callback)(const uint8_t *user_data,
-                                                          void *cookie),
+                              struct IA2_fnptr__ZTSFvPKhPvE free_callback,
                               void *const cookie)
 {
     return dav1d_data_wrap_user_data_internal(buf,
@@ -762,3 +776,4 @@ void dav1d_data_unref(Dav1dData *const buf) {
 void dav1d_data_props_unref(Dav1dDataProps *const props) {
     dav1d_data_props_unref_internal(props);
 }
+IA2_DEFINE_WRAPPER(init_internal)

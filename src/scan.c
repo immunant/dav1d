@@ -350,7 +350,7 @@ static COLD void init_internal(void) {
 }
 
 COLD void dav1d_init_last_nonzero_col_from_eob_tables(void) {
-    static pthread_once_t initted = PTHREAD_ONCE_INIT;
+    static pthread_once_t initted IA2_SHARED_DATA = PTHREAD_ONCE_INIT;
     pthread_once(&initted, IA2_IGNORE(init_internal));
 }
 

@@ -40,12 +40,30 @@
 #include "input/demuxer.h"
 #include "input/parse.h"
 
+void *shared_malloc(size_t bytes);
+void shared_free(void *ptr);
+
+__attribute__((used)) static void annexb_shared_data_free(const uint8_t *const data, void *const user_data) {
+    (void)user_data;
+    shared_free((void *)data);
+}
+
+static struct IA2_fnptr__ZTSFvPKhPvE ia2_free_cb_from_fn(
+    void (*fn)(const uint8_t *const, void *const))
+{
+    union {
+        void (*fn)(const uint8_t *const, void *const);
+        char *ptr;
+    } cast = { .fn = fn };
+    return (struct IA2_fnptr__ZTSFvPKhPvE) { cast.ptr };
+}
+
 // these functions are based on an implementation from FFmpeg, and relicensed
 // with author's permission
 
 #define PROBE_SIZE 2048
 
-static int annexb_probe(const uint8_t *data) {
+__attribute__((used)) static int annexb_probe(const uint8_t *data) {
     int ret, cnt = 0;
 
     size_t temporal_unit_size;
@@ -125,7 +143,7 @@ typedef struct DemuxerPriv {
     size_t frame_unit_size;
 } AnnexbInputContext;
 
-static int annexb_open(AnnexbInputContext *const c, const char *const file,
+__attribute__((used)) static int annexb_open(AnnexbInputContext *const c, const char *const file,
                        unsigned fps[2], unsigned *const num_frames, unsigned timebase[2])
 {
     int res;
@@ -152,7 +170,7 @@ static int annexb_open(AnnexbInputContext *const c, const char *const file,
     return 0;
 }
 
-static int annexb_read(AnnexbInputContext *const c, Dav1dData *const data) {
+__attribute__((used)) static int annexb_read(AnnexbInputContext *const c, Dav1dData *const data) {
     size_t len;
     int res;
 
@@ -167,8 +185,14 @@ static int annexb_read(AnnexbInputContext *const c, Dav1dData *const data) {
     }
     res = leb128(c->f, &len);
     if (res < 0 || (len + res) > c->frame_unit_size) return -1;
-    uint8_t *ptr = dav1d_data_create(data, len);
+    uint8_t *ptr = shared_malloc(len ? len : 1);
     if (!ptr) return -1;
+    if (dav1d_data_wrap(data, ptr, len,
+                        ia2_free_cb_from_fn(annexb_shared_data_free), NULL) < 0)
+    {
+        shared_free(ptr);
+        return -1;
+    }
     c->temporal_unit_size -= len + res;
     c->frame_unit_size -= len + res;
     if (fread(ptr, len, 1, c->f) != 1) {
@@ -180,17 +204,21 @@ static int annexb_read(AnnexbInputContext *const c, Dav1dData *const data) {
     return 0;
 }
 
-static void annexb_close(AnnexbInputContext *const c) {
+__attribute__((used)) static void annexb_close(AnnexbInputContext *const c) {
     fclose(c->f);
 }
 
 const Demuxer annexb_demuxer = {
     .priv_data_size = sizeof(AnnexbInputContext),
     .name = "annexb",
-    .probe = annexb_probe,
+    .probe = IA2_FN(annexb_probe),
     .probe_sz = PROBE_SIZE,
-    .open = annexb_open,
-    .read = annexb_read,
+    .open = IA2_FN(annexb_open),
+    .read = IA2_FN(annexb_read),
     .seek = NULL,
-    .close = annexb_close,
+    .close = IA2_FN(annexb_close),
 };
+IA2_DEFINE_WRAPPER(annexb_close)
+IA2_DEFINE_WRAPPER(annexb_open)
+IA2_DEFINE_WRAPPER(annexb_probe)
+IA2_DEFINE_WRAPPER(annexb_read)

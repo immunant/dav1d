@@ -70,7 +70,7 @@ typedef struct Dav1dMemPoolBuffer {
 } Dav1dMemPoolBuffer;
 
 typedef struct Dav1dMemPool {
-    pthread_mutex_t lock;
+    pthread_mutex_t *lock;
     Dav1dMemPoolBuffer *buf;
     int ref_cnt;
     int end;

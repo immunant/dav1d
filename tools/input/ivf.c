@@ -37,6 +37,24 @@
 
 #include "input/demuxer.h"
 
+void *shared_malloc(size_t bytes);
+void shared_free(void *ptr);
+
+__attribute__((used)) static void ivf_shared_data_free(const uint8_t *const data, void *const user_data) {
+    (void)user_data;
+    shared_free((void *)data);
+}
+
+static struct IA2_fnptr__ZTSFvPKhPvE ia2_free_cb_from_fn(
+    void (*fn)(const uint8_t *const, void *const))
+{
+    union {
+        void (*fn)(const uint8_t *const, void *const);
+        char *ptr;
+    } cast = { .fn = fn };
+    return (struct IA2_fnptr__ZTSFvPKhPvE) { cast.ptr };
+}
+
 typedef struct DemuxerPriv {
     FILE *f;
     int broken;
@@ -51,7 +69,7 @@ static const uint8_t probe_data[] = {
     'A', 'V', '0', '1',
 };
 
-static int ivf_probe(const uint8_t *const data) {
+__attribute__((used)) static int ivf_probe(const uint8_t *const data) {
     return !memcmp(data, probe_data, sizeof(probe_data));
 }
 
@@ -63,7 +81,7 @@ static int64_t rl64(const uint8_t *const p) {
     return (((uint64_t) rl32(&p[4])) << 32) | rl32(p);
 }
 
-static int ivf_open(IvfInputContext *const c, const char *const file,
+__attribute__((used)) static int ivf_open(IvfInputContext *const c, const char *const file,
                     unsigned fps[2], unsigned *const num_frames, unsigned timebase[2])
 {
     uint8_t hdr[32];
@@ -150,13 +168,20 @@ static inline int ivf_read_header(IvfInputContext *const c, ptrdiff_t *const sz,
     return 0;
 }
 
-static int ivf_read(IvfInputContext *const c, Dav1dData *const buf) {
+__attribute__((used)) static int ivf_read(IvfInputContext *const c, Dav1dData *const buf) {
     uint8_t *ptr;
     ptrdiff_t sz;
     int64_t off;
     uint64_t ts;
     if (ivf_read_header(c, &sz, &off, &ts)) return -1;
-    if (!(ptr = dav1d_data_create(buf, sz))) return -1;
+    ptr = shared_malloc(sz ? (size_t)sz : 1);
+    if (!ptr) return -1;
+    if (dav1d_data_wrap(buf, ptr, (size_t)sz,
+                        ia2_free_cb_from_fn(ivf_shared_data_free), NULL) < 0)
+    {
+        shared_free(ptr);
+        return -1;
+    }
     if (fread(ptr, sz, 1, c->f) != 1) {
         fprintf(stderr, "Failed to read frame data: %s\n", strerror(errno));
         dav1d_data_unref(buf);
@@ -168,7 +193,7 @@ static int ivf_read(IvfInputContext *const c, Dav1dData *const buf) {
     return 0;
 }
 
-static int ivf_seek(IvfInputContext *const c, const uint64_t pts) {
+__attribute__((used)) static int ivf_seek(IvfInputContext *const c, const uint64_t pts) {
     uint64_t cur;
     const uint64_t ts = llround((pts * c->timebase) / 1000000000.0);
     if (ts <= c->last_ts)
@@ -187,17 +212,22 @@ error:
     return -1;
 }
 
-static void ivf_close(IvfInputContext *const c) {
+__attribute__((used)) static void ivf_close(IvfInputContext *const c) {
     fclose(c->f);
 }
 
 const Demuxer ivf_demuxer = {
     .priv_data_size = sizeof(IvfInputContext),
     .name = "ivf",
-    .probe = ivf_probe,
+    .probe = IA2_FN(ivf_probe),
     .probe_sz = sizeof(probe_data),
-    .open = ivf_open,
-    .read = ivf_read,
-    .seek = ivf_seek,
-    .close = ivf_close,
+    .open = IA2_FN(ivf_open),
+    .read = IA2_FN(ivf_read),
+    .seek = IA2_FN(ivf_seek),
+    .close = IA2_FN(ivf_close),
 };
+IA2_DEFINE_WRAPPER(ivf_close)
+IA2_DEFINE_WRAPPER(ivf_open)
+IA2_DEFINE_WRAPPER(ivf_probe)
+IA2_DEFINE_WRAPPER(ivf_read)
+IA2_DEFINE_WRAPPER(ivf_seek)

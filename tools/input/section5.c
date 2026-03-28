@@ -41,9 +41,27 @@
 #include "input/demuxer.h"
 #include "input/parse.h"
 
+void *shared_malloc(size_t bytes);
+void shared_free(void *ptr);
+
 #define PROBE_SIZE 2048
 
-static int section5_probe(const uint8_t *data) {
+__attribute__((used)) static void section5_shared_data_free(const uint8_t *const data, void *const user_data) {
+    (void)user_data;
+    shared_free((void *)data);
+}
+
+static struct IA2_fnptr__ZTSFvPKhPvE ia2_free_cb_from_fn(
+    void (*fn)(const uint8_t *const, void *const))
+{
+    union {
+        void (*fn)(const uint8_t *const, void *const);
+        char *ptr;
+    } cast = { .fn = fn };
+    return (struct IA2_fnptr__ZTSFvPKhPvE) { cast.ptr };
+}
+
+__attribute__((used)) static int section5_probe(const uint8_t *data) {
     int ret, cnt = 0;
 
     // Check that the first OBU is a Temporal Delimiter.
@@ -86,7 +104,7 @@ typedef struct DemuxerPriv {
     FILE *f;
 } Section5InputContext;
 
-static int section5_open(Section5InputContext *const c, const char *const file,
+__attribute__((used)) static int section5_open(Section5InputContext *const c, const char *const file,
                          unsigned fps[2], unsigned *const num_frames, unsigned timebase[2])
 {
     if (!(c->f = fopen(file, "rb"))) {
@@ -125,7 +143,7 @@ static int section5_open(Section5InputContext *const c, const char *const file,
     return 0;
 }
 
-static int section5_read(Section5InputContext *const c, Dav1dData *const data) {
+__attribute__((used)) static int section5_read(Section5InputContext *const c, Dav1dData *const data) {
     size_t total_bytes = 0;
 
     for (int first = 1;; first = 0) {
@@ -161,8 +179,15 @@ static int section5_read(Section5InputContext *const c, Dav1dData *const data) {
     }
 
     fseeko(c->f, -(off_t)total_bytes, SEEK_CUR);
-    uint8_t *ptr = dav1d_data_create(data, total_bytes);
+    uint8_t *ptr = shared_malloc(total_bytes ? total_bytes : 1);
     if (!ptr) return -1;
+    if (dav1d_data_wrap(
+            data, ptr, total_bytes,
+            ia2_free_cb_from_fn(section5_shared_data_free), NULL) < 0)
+    {
+        shared_free(ptr);
+        return -1;
+    }
     if (fread(ptr, total_bytes, 1, c->f) != 1) {
         fprintf(stderr, "Failed to read frame data: %s\n", strerror(errno));
         dav1d_data_unref(data);
@@ -172,17 +197,21 @@ static int section5_read(Section5InputContext *const c, Dav1dData *const data) {
     return 0;
 }
 
-static void section5_close(Section5InputContext *const c) {
+__attribute__((used)) static void section5_close(Section5InputContext *const c) {
     fclose(c->f);
 }
 
 const Demuxer section5_demuxer = {
     .priv_data_size = sizeof(Section5InputContext),
     .name = "section5",
-    .probe = section5_probe,
+    .probe = IA2_FN(section5_probe),
     .probe_sz = PROBE_SIZE,
-    .open = section5_open,
-    .read = section5_read,
+    .open = IA2_FN(section5_open),
+    .read = IA2_FN(section5_read),
     .seek = NULL,
-    .close = section5_close,
+    .close = IA2_FN(section5_close),
 };
+IA2_DEFINE_WRAPPER(section5_close)
+IA2_DEFINE_WRAPPER(section5_open)
+IA2_DEFINE_WRAPPER(section5_probe)
+IA2_DEFINE_WRAPPER(section5_read)
