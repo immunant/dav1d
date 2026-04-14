@@ -1604,7 +1604,7 @@ ptrdiff_t dav1d_parse_obus(Dav1dContext *const c, Dav1dData *const in) {
                 c->n_itut_t35 = 0;
                 c->event_flags |= dav1d_picture_get_event_flags(&c->refs[c->frame_hdr->existing_frame_idx].p);
             } else {
-                pthread_mutex_lock(&c->task_thread.lock);
+                pthread_mutex_lock(c->task_thread.lock);
                 // need to append this to the frame output queue
                 const unsigned next = c->frame_thread.next++;
                 if (c->frame_thread.next == c->n_fc)
@@ -1612,8 +1612,8 @@ ptrdiff_t dav1d_parse_obus(Dav1dContext *const c, Dav1dData *const in) {
 
                 Dav1dFrameContext *const f = &c->fc[next];
                 while (f->n_tile_data > 0)
-                    pthread_cond_wait(&f->task_thread.cond,
-                                      &f->task_thread.ttd->lock);
+                    pthread_cond_wait(f->task_thread.cond,
+                                      f->task_thread.ttd->lock);
                 Dav1dThreadPicture *const out_delayed =
                     &c->frame_thread.out_delayed[next];
                 if (out_delayed->p.data[0] || atomic_load(&f->task_thread.error)) {
@@ -1657,7 +1657,7 @@ ptrdiff_t dav1d_parse_obus(Dav1dContext *const c, Dav1dData *const in) {
                 c->itut_t35 = NULL;
                 c->n_itut_t35 = 0;
 
-                pthread_mutex_unlock(&c->task_thread.lock);
+                pthread_mutex_unlock(c->task_thread.lock);
             }
             if (c->refs[c->frame_hdr->existing_frame_idx].p.p.frame_hdr->frame_type == DAV1D_FRAME_TYPE_KEY) {
                 const int r = c->frame_hdr->existing_frame_idx;

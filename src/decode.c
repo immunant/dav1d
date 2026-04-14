@@ -3294,17 +3294,17 @@ int dav1d_decode_frame(Dav1dFrameContext *const f) {
     if (!res) {
         if (f->c->n_tc > 1) {
             res = dav1d_task_create_tile_sbrow(f, 0, 1);
-            pthread_mutex_lock(&f->task_thread.ttd->lock);
-            pthread_cond_signal(&f->task_thread.ttd->cond);
+            pthread_mutex_lock(f->task_thread.ttd->lock);
+            pthread_cond_signal(f->task_thread.ttd->cond);
             if (!res) {
                 while (!f->task_thread.done[0] ||
                        atomic_load(&f->task_thread.task_counter) > 0)
                 {
-                    pthread_cond_wait(&f->task_thread.cond,
-                                      &f->task_thread.ttd->lock);
+                    pthread_cond_wait(f->task_thread.cond,
+                                      f->task_thread.ttd->lock);
                 }
             }
-            pthread_mutex_unlock(&f->task_thread.ttd->lock);
+            pthread_mutex_unlock(f->task_thread.ttd->lock);
             res = f->task_thread.retval;
         } else {
             res = dav1d_decode_frame_main(f);
@@ -3333,15 +3333,15 @@ int dav1d_submit_frame(Dav1dContext *const c) {
     // wait for c->out_delayed[next] and move into c->out if visible
     Dav1dThreadPicture *out_delayed;
     if (c->n_fc > 1) {
-        pthread_mutex_lock(&c->task_thread.lock);
+        pthread_mutex_lock(c->task_thread.lock);
         const unsigned next = c->frame_thread.next++;
         if (c->frame_thread.next == c->n_fc)
             c->frame_thread.next = 0;
 
         f = &c->fc[next];
         while (f->n_tile_data > 0)
-            pthread_cond_wait(&f->task_thread.cond,
-                              &c->task_thread.lock);
+            pthread_cond_wait(f->task_thread.cond,
+                              c->task_thread.lock);
         out_delayed = &c->frame_thread.out_delayed[next];
         if (out_delayed->p.data[0] || atomic_load(&f->task_thread.error)) {
             unsigned first = atomic_load(&c->task_thread.first);
@@ -3712,7 +3712,7 @@ int dav1d_submit_frame(Dav1dContext *const c) {
         }
     } else {
         dav1d_task_frame_init(f);
-        pthread_mutex_unlock(&c->task_thread.lock);
+        pthread_mutex_unlock(c->task_thread.lock);
     }
 
     return 0;
@@ -3742,7 +3742,7 @@ error:
     f->n_tile_data = 0;
 
     if (c->n_fc > 1)
-        pthread_mutex_unlock(&c->task_thread.lock);
+        pthread_mutex_unlock(c->task_thread.lock);
 
     return res;
 }

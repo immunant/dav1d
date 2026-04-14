@@ -31,9 +31,9 @@
 #include "src/thread.h"
 
 struct thread_data {
-    pthread_t thread;
-    pthread_cond_t cond;
-    pthread_mutex_t lock;
+    pthread_t *thread;
+    pthread_cond_t *cond;
+    pthread_mutex_t *lock;
     int inited;
 };
 

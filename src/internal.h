@@ -131,8 +131,8 @@ struct Dav1dContext {
 
     // task threading (refer to tc[] for per_thread thingies)
     struct TaskThreadData {
-        pthread_mutex_t lock;
-        pthread_cond_t cond;
+        pthread_mutex_t *lock;
+        pthread_cond_t *cond;
         atomic_uint first;
         unsigned cur;
         // This is used for delayed reset of the task cur pointer when
@@ -143,7 +143,7 @@ struct Dav1dContext {
         atomic_int cond_signaled;
         struct {
             int exec, finished;
-            pthread_cond_t cond;
+            pthread_cond_t *cond;
             const Dav1dPicture *in;
             Dav1dPicture *out;
             enum TaskType type;
@@ -320,8 +320,8 @@ struct Dav1dFrameContext {
     } lf;
 
     struct {
-        pthread_mutex_t lock;
-        pthread_cond_t cond;
+        pthread_mutex_t *lock;
+        pthread_cond_t *cond;
         struct TaskThreadData *ttd;
         struct Dav1dTask *tasks, *tile_tasks[2], init_task;
         int num_tasks, num_tile_tasks;
@@ -339,7 +339,7 @@ struct Dav1dFrameContext {
         struct Dav1dTask *task_cur_prev;
         struct { // async task insertion
             atomic_int merge;
-            pthread_mutex_t lock;
+            pthread_mutex_t *lock;
             Dav1dTask *head, *tail;
         } pending_tasks;
     } task_thread;

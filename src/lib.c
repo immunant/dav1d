@@ -45,7 +45,6 @@ extern void *__wrap_dlsym_from_2(void *handle, const char *name) __attribute__((
 
 void *shared_malloc(size_t bytes);
 void shared_free(void *ptr);
-
 #include "dav1d/dav1d.h"
 #include "dav1d/data.h"
 
@@ -167,7 +166,6 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
                           s->operating_point <= 31, DAV1D_ERR(EINVAL));
     validate_input_or_ret(s->decode_frame_type >= DAV1D_DECODEFRAMETYPE_ALL &&
                           s->decode_frame_type <= DAV1D_DECODEFRAMETYPE_KEY, DAV1D_ERR(EINVAL));
-
     pthread_attr_t *thread_attr = shared_malloc(sizeof(*thread_attr));
     if (!thread_attr) return DAV1D_ERR(ENOMEM);
     if (pthread_attr_init(thread_attr)) {
@@ -241,14 +239,46 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     if (!c->tc) goto error;
     memset(c->tc, 0, sizeof(*c->tc) * c->n_tc);
     if (c->n_tc > 1) {
-        if (pthread_mutex_init(&c->task_thread.lock, NULL)) goto error;
-        if (pthread_cond_init(&c->task_thread.cond, NULL)) {
-            pthread_mutex_destroy(&c->task_thread.lock);
+        c->task_thread.lock = shared_malloc(sizeof(*c->task_thread.lock));
+        c->task_thread.cond = shared_malloc(sizeof(*c->task_thread.cond));
+        c->task_thread.delayed_fg.cond = shared_malloc(sizeof(*c->task_thread.delayed_fg.cond));
+        if (!c->task_thread.lock || !c->task_thread.cond || !c->task_thread.delayed_fg.cond) {
+            if (c->task_thread.delayed_fg.cond) shared_free(c->task_thread.delayed_fg.cond);
+            if (c->task_thread.cond) shared_free(c->task_thread.cond);
+            if (c->task_thread.lock) shared_free(c->task_thread.lock);
+            c->task_thread.delayed_fg.cond = NULL;
+            c->task_thread.cond = NULL;
+            c->task_thread.lock = NULL;
             goto error;
         }
-        if (pthread_cond_init(&c->task_thread.delayed_fg.cond, NULL)) {
-            pthread_cond_destroy(&c->task_thread.cond);
-            pthread_mutex_destroy(&c->task_thread.lock);
+        if (pthread_mutex_init(c->task_thread.lock, NULL)) {
+            shared_free(c->task_thread.delayed_fg.cond);
+            shared_free(c->task_thread.cond);
+            shared_free(c->task_thread.lock);
+            c->task_thread.delayed_fg.cond = NULL;
+            c->task_thread.cond = NULL;
+            c->task_thread.lock = NULL;
+            goto error;
+        }
+        if (pthread_cond_init(c->task_thread.cond, NULL)) {
+            pthread_mutex_destroy(c->task_thread.lock);
+            shared_free(c->task_thread.delayed_fg.cond);
+            shared_free(c->task_thread.cond);
+            shared_free(c->task_thread.lock);
+            c->task_thread.delayed_fg.cond = NULL;
+            c->task_thread.cond = NULL;
+            c->task_thread.lock = NULL;
+            goto error;
+        }
+        if (pthread_cond_init(c->task_thread.delayed_fg.cond, NULL)) {
+            pthread_cond_destroy(c->task_thread.cond);
+            pthread_mutex_destroy(c->task_thread.lock);
+            shared_free(c->task_thread.delayed_fg.cond);
+            shared_free(c->task_thread.cond);
+            shared_free(c->task_thread.lock);
+            c->task_thread.delayed_fg.cond = NULL;
+            c->task_thread.cond = NULL;
+            c->task_thread.lock = NULL;
             goto error;
         }
         c->task_thread.cur = c->n_fc;
@@ -267,14 +297,46 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     for (unsigned n = 0; n < c->n_fc; n++) {
         Dav1dFrameContext *const f = &c->fc[n];
         if (c->n_tc > 1) {
-            if (pthread_mutex_init(&f->task_thread.lock, NULL)) goto error;
-            if (pthread_cond_init(&f->task_thread.cond, NULL)) {
-                pthread_mutex_destroy(&f->task_thread.lock);
+            f->task_thread.lock = shared_malloc(sizeof(*f->task_thread.lock));
+            f->task_thread.cond = shared_malloc(sizeof(*f->task_thread.cond));
+            f->task_thread.pending_tasks.lock = shared_malloc(sizeof(*f->task_thread.pending_tasks.lock));
+            if (!f->task_thread.lock || !f->task_thread.cond || !f->task_thread.pending_tasks.lock) {
+                if (f->task_thread.pending_tasks.lock) shared_free(f->task_thread.pending_tasks.lock);
+                if (f->task_thread.cond) shared_free(f->task_thread.cond);
+                if (f->task_thread.lock) shared_free(f->task_thread.lock);
+                f->task_thread.pending_tasks.lock = NULL;
+                f->task_thread.cond = NULL;
+                f->task_thread.lock = NULL;
                 goto error;
             }
-            if (pthread_mutex_init(&f->task_thread.pending_tasks.lock, NULL)) {
-                pthread_cond_destroy(&f->task_thread.cond);
-                pthread_mutex_destroy(&f->task_thread.lock);
+            if (pthread_mutex_init(f->task_thread.lock, NULL)) {
+                shared_free(f->task_thread.pending_tasks.lock);
+                shared_free(f->task_thread.cond);
+                shared_free(f->task_thread.lock);
+                f->task_thread.pending_tasks.lock = NULL;
+                f->task_thread.cond = NULL;
+                f->task_thread.lock = NULL;
+                goto error;
+            }
+            if (pthread_cond_init(f->task_thread.cond, NULL)) {
+                pthread_mutex_destroy(f->task_thread.lock);
+                shared_free(f->task_thread.pending_tasks.lock);
+                shared_free(f->task_thread.cond);
+                shared_free(f->task_thread.lock);
+                f->task_thread.pending_tasks.lock = NULL;
+                f->task_thread.cond = NULL;
+                f->task_thread.lock = NULL;
+                goto error;
+            }
+            if (pthread_mutex_init(f->task_thread.pending_tasks.lock, NULL)) {
+                pthread_cond_destroy(f->task_thread.cond);
+                pthread_mutex_destroy(f->task_thread.lock);
+                shared_free(f->task_thread.pending_tasks.lock);
+                shared_free(f->task_thread.cond);
+                shared_free(f->task_thread.lock);
+                f->task_thread.pending_tasks.lock = NULL;
+                f->task_thread.cond = NULL;
+                f->task_thread.lock = NULL;
                 goto error;
             }
         }
@@ -290,14 +352,46 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
         t->c = c;
         memset(t->cf_16bpc, 0, sizeof(t->cf_16bpc));
         if (c->n_tc > 1) {
-            if (pthread_mutex_init(&t->task_thread.td.lock, NULL)) goto error;
-            if (pthread_cond_init(&t->task_thread.td.cond, NULL)) {
-                pthread_mutex_destroy(&t->task_thread.td.lock);
+            t->task_thread.td.thread = shared_malloc(sizeof(*t->task_thread.td.thread));
+            t->task_thread.td.lock = shared_malloc(sizeof(*t->task_thread.td.lock));
+            t->task_thread.td.cond = shared_malloc(sizeof(*t->task_thread.td.cond));
+            if (!t->task_thread.td.thread || !t->task_thread.td.lock || !t->task_thread.td.cond) {
+                if (t->task_thread.td.cond) shared_free(t->task_thread.td.cond);
+                if (t->task_thread.td.lock) shared_free(t->task_thread.td.lock);
+                if (t->task_thread.td.thread) shared_free(t->task_thread.td.thread);
+                t->task_thread.td.cond = NULL;
+                t->task_thread.td.lock = NULL;
+                t->task_thread.td.thread = NULL;
                 goto error;
             }
-            if (pthread_create(&t->task_thread.td.thread, thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
-                pthread_cond_destroy(&t->task_thread.td.cond);
-                pthread_mutex_destroy(&t->task_thread.td.lock);
+            if (pthread_mutex_init(t->task_thread.td.lock, NULL)) {
+                shared_free(t->task_thread.td.cond);
+                shared_free(t->task_thread.td.lock);
+                shared_free(t->task_thread.td.thread);
+                t->task_thread.td.cond = NULL;
+                t->task_thread.td.lock = NULL;
+                t->task_thread.td.thread = NULL;
+                goto error;
+            }
+            if (pthread_cond_init(t->task_thread.td.cond, NULL)) {
+                pthread_mutex_destroy(t->task_thread.td.lock);
+                shared_free(t->task_thread.td.cond);
+                shared_free(t->task_thread.td.lock);
+                shared_free(t->task_thread.td.thread);
+                t->task_thread.td.cond = NULL;
+                t->task_thread.td.lock = NULL;
+                t->task_thread.td.thread = NULL;
+                goto error;
+            }
+            if (pthread_create(t->task_thread.td.thread, thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
+                pthread_cond_destroy(t->task_thread.td.cond);
+                pthread_mutex_destroy(t->task_thread.td.lock);
+                shared_free(t->task_thread.td.cond);
+                shared_free(t->task_thread.td.lock);
+                shared_free(t->task_thread.td.thread);
+                t->task_thread.td.cond = NULL;
+                t->task_thread.td.lock = NULL;
+                t->task_thread.td.thread = NULL;
                 goto error;
             }
             t->task_thread.td.inited = 1;
@@ -305,7 +399,6 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     }
     dav1d_pal_dsp_init(&c->pal_dsp);
     dav1d_refmvs_dsp_init(&c->refmvs_dsp);
-
     pthread_attr_destroy(thread_attr);
     shared_free(thread_attr);
 
@@ -374,10 +467,10 @@ static int drain_picture(Dav1dContext *const c, Dav1dPicture *const out) {
     do {
         const unsigned next = c->frame_thread.next;
         Dav1dFrameContext *const f = &c->fc[next];
-        pthread_mutex_lock(&c->task_thread.lock);
+        pthread_mutex_lock(c->task_thread.lock);
         while (f->n_tile_data > 0)
-            pthread_cond_wait(&f->task_thread.cond,
-                              &f->task_thread.ttd->lock);
+            pthread_cond_wait(f->task_thread.cond,
+                              f->task_thread.ttd->lock);
         Dav1dThreadPicture *const out_delayed =
             &c->frame_thread.out_delayed[next];
         if (out_delayed->p.data[0] || atomic_load(&f->task_thread.error)) {
@@ -392,12 +485,12 @@ static int drain_picture(Dav1dContext *const c, Dav1dPicture *const out) {
                 c->task_thread.cur--;
             drained = 1;
         } else if (drained) {
-            pthread_mutex_unlock(&c->task_thread.lock);
+            pthread_mutex_unlock(c->task_thread.lock);
             break;
         }
         if (++c->frame_thread.next == c->n_fc)
             c->frame_thread.next = 0;
-        pthread_mutex_unlock(&c->task_thread.lock);
+        pthread_mutex_unlock(c->task_thread.lock);
         const int error = f->task_thread.retval;
         if (error) {
             f->task_thread.retval = 0;
@@ -577,11 +670,11 @@ void dav1d_flush(Dav1dContext *const c) {
 
     // stop running tasks in worker threads
     if (c->n_tc > 1) {
-        pthread_mutex_lock(&c->task_thread.lock);
+        pthread_mutex_lock(c->task_thread.lock);
         for (unsigned i = 0; i < c->n_tc; i++) {
             Dav1dTaskContext *const tc = &c->tc[i];
             while (!tc->task_thread.flushed) {
-                pthread_cond_wait(&tc->task_thread.td.cond, &c->task_thread.lock);
+                pthread_cond_wait(tc->task_thread.td.cond, c->task_thread.lock);
             }
         }
         for (unsigned i = 0; i < c->n_fc; i++) {
@@ -596,7 +689,7 @@ void dav1d_flush(Dav1dContext *const c) {
         c->task_thread.cur = c->n_fc;
         atomic_store(&c->task_thread.reset_task_cur, UINT_MAX);
         atomic_store(&c->task_thread.cond_signaled, 0);
-        pthread_mutex_unlock(&c->task_thread.lock);
+        pthread_mutex_unlock(c->task_thread.lock);
     }
 
     // wait for threads to complete flushing
@@ -634,21 +727,47 @@ static COLD void close_internal(Dav1dContext **const c_out, int flush) {
     if (c->tc) {
         struct TaskThreadData *ttd = &c->task_thread;
         if (ttd->inited) {
-            pthread_mutex_lock(&ttd->lock);
+            pthread_mutex_lock(ttd->lock);
             for (unsigned n = 0; n < c->n_tc && c->tc[n].task_thread.td.inited; n++)
                 c->tc[n].task_thread.die = 1;
-            pthread_cond_broadcast(&ttd->cond);
-            pthread_mutex_unlock(&ttd->lock);
-            for (unsigned n = 0; n < c->n_tc; n++) {
-                Dav1dTaskContext *const pf = &c->tc[n];
-                if (!pf->task_thread.td.inited) break;
-                pthread_join(pf->task_thread.td.thread, NULL);
-                pthread_cond_destroy(&pf->task_thread.td.cond);
-                pthread_mutex_destroy(&pf->task_thread.td.lock);
+            pthread_cond_broadcast(ttd->cond);
+            pthread_mutex_unlock(ttd->lock);
+        }
+        for (unsigned n = 0; n < c->n_tc; n++) {
+            Dav1dTaskContext *const pf = &c->tc[n];
+            if (pf->task_thread.td.inited)
+                pthread_join(*pf->task_thread.td.thread, NULL);
+            if (pf->task_thread.td.thread) {
+                shared_free(pf->task_thread.td.thread);
+                pf->task_thread.td.thread = NULL;
             }
-            pthread_cond_destroy(&ttd->delayed_fg.cond);
-            pthread_cond_destroy(&ttd->cond);
-            pthread_mutex_destroy(&ttd->lock);
+            if (pf->task_thread.td.cond) {
+                if (pf->task_thread.td.inited)
+                    pthread_cond_destroy(pf->task_thread.td.cond);
+                shared_free(pf->task_thread.td.cond);
+                pf->task_thread.td.cond = NULL;
+            }
+            if (pf->task_thread.td.lock) {
+                if (pf->task_thread.td.inited)
+                    pthread_mutex_destroy(pf->task_thread.td.lock);
+                shared_free(pf->task_thread.td.lock);
+                pf->task_thread.td.lock = NULL;
+            }
+        }
+        if (ttd->delayed_fg.cond) {
+            if (ttd->inited) pthread_cond_destroy(ttd->delayed_fg.cond);
+            shared_free(ttd->delayed_fg.cond);
+            ttd->delayed_fg.cond = NULL;
+        }
+        if (ttd->cond) {
+            if (ttd->inited) pthread_cond_destroy(ttd->cond);
+            shared_free(ttd->cond);
+            ttd->cond = NULL;
+        }
+        if (ttd->lock) {
+            if (ttd->inited) pthread_mutex_destroy(ttd->lock);
+            shared_free(ttd->lock);
+            ttd->lock = NULL;
         }
         dav1d_free_aligned(c->tc);
     }
@@ -667,9 +786,21 @@ static COLD void close_internal(Dav1dContext **const c_out, int flush) {
             dav1d_free_aligned(f->frame_thread.pal);
         }
         if (c->n_tc > 1) {
-            pthread_mutex_destroy(&f->task_thread.pending_tasks.lock);
-            pthread_cond_destroy(&f->task_thread.cond);
-            pthread_mutex_destroy(&f->task_thread.lock);
+            if (f->task_thread.pending_tasks.lock) {
+                pthread_mutex_destroy(f->task_thread.pending_tasks.lock);
+                shared_free(f->task_thread.pending_tasks.lock);
+                f->task_thread.pending_tasks.lock = NULL;
+            }
+            if (f->task_thread.cond) {
+                pthread_cond_destroy(f->task_thread.cond);
+                shared_free(f->task_thread.cond);
+                f->task_thread.cond = NULL;
+            }
+            if (f->task_thread.lock) {
+                pthread_mutex_destroy(f->task_thread.lock);
+                shared_free(f->task_thread.lock);
+                f->task_thread.lock = NULL;
+            }
         }
         dav1d_free(f->frame_thread.frame_progress);
         dav1d_free(f->task_thread.tasks);
