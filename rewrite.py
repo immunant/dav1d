@@ -9,6 +9,7 @@
 # ]
 # ///
 from enum import Enum
+from filecmp import cmp as filecmp
 import typer
 from typer import Option
 from dataclasses import dataclass
@@ -33,6 +34,11 @@ class LddPath:
     path: Path
 
 
+def is_loader_path(path: Path) -> bool:
+    name = path.name
+    return name == "ld.so" or name.startswith("ld-linux-")
+
+
 def parse_ldd(ldd_output: str) -> Generator[LddPath, None, None]:
     for line in ldd_output.strip().split("\n"):
         parts = line.strip().split(" => ", 1)
@@ -41,8 +47,36 @@ def parse_ldd(ldd_output: str) -> Generator[LddPath, None, None]:
         name, rest = parts
         if rest == "not found":
             raise FileNotFoundError(name)
+        name_path = Path(name)
+        # ldd may print the interpreter as:
+        #   /path/to/custom/ld-linux.so => /lib64/ld-linux.so (...)
+        # If we treat this like a normal dependency, later copy steps can
+        # overwrite IA2's loader with the host loader.
+        if name_path.is_absolute():
+            continue
         path, rest = rest.rsplit(" (")
-        yield LddPath(name=Path(name), path=Path(path))
+        yield LddPath(name=name_path, path=Path(path))
+
+
+def ensure_ia2_runtime_loader(ia2_build_dir: Path, target_arch: "TargetArch") -> None:
+    loader_name = {
+        TargetArch.X86_64: "ld-linux-x86-64.so.2",
+        TargetArch.AArch64: "ld-linux-aarch64.so.1",
+    }[target_arch]
+    sysroot_loader = ia2_build_dir / "external/glibc/sysroot/lib" / loader_name
+    runtime_loader = ia2_build_dir / "runtime/libia2" / loader_name
+
+    # If IA2 did not rebuild glibc for this run, there is no sysroot loader to
+    # synchronize from.
+    if not sysroot_loader.exists():
+        return
+
+    runtime_loader.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(sysroot_loader, runtime_loader)
+    if not filecmp(sysroot_loader, runtime_loader, shallow=False):
+        raise RuntimeError(
+            f"runtime loader mismatch after copy: {runtime_loader} != {sysroot_loader}"
+        )
 
 
 def filter_srcs(srcs: Sequence[Path]) -> Generator[Path, Any, Any]:
@@ -271,6 +305,8 @@ def main(
         ninja["partition-alloc-padding"]()
         ninja["libia2"]()
 
+    ensure_ia2_runtime_loader(ia2_build_dir, target_arch)
+
     ia2_rewriter = local[ia2_build_dir / "tools/rewriter/ia2-rewriter"]
     pad_tls = local[ia2_build_dir / "tools/pad-tls/pad-tls"]
 
@@ -442,14 +478,17 @@ def main(
     dav1d = rewritten_build_dir / "tools/dav1d"
     pad_tls[dav1d]()
 
-    for ldd in parse_ldd(ldd[dav1d]()):
-        padded = rpath / ldd.name
+    for ldd_path in parse_ldd(ldd[dav1d]()):
+        if is_loader_path(ldd_path.name) or is_loader_path(ldd_path.path):
+            continue
+
+        padded = rpath / ldd_path.name
         # Only copy if the library isn't already in rpath (e.g. libdav1d.so is
         # built directly into rpath by meson, so samefile() is True). Always run
         # pad-tls regardless — skipping it leaves p_align too small, causing TLS
         # page sharing between compartments and SIGSEGV during exit cleanup.
-        if not (padded.exists() and ldd.path.samefile(padded)):
-            shutil.copy(ldd.path, padded)
+        if not (padded.exists() and ldd_path.path.samefile(padded)):
+            shutil.copy(ldd_path.path, padded)
         pad_tls["--allow-no-tls", padded]()
 
 
