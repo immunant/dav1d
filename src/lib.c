@@ -34,6 +34,8 @@
 
 #include <errno.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <pthread.h>
 
 #if defined(__linux__) && HAVE_DLSYM
 #include <dlfcn.h>
@@ -45,6 +47,17 @@ extern void *__wrap_dlsym_from_2(void *handle, const char *name) __attribute__((
 
 void *shared_malloc(size_t bytes);
 void shared_free(void *ptr);
+int __real_pthread_create(pthread_t *restrict thread,
+                          const pthread_attr_t *restrict attr,
+                          void *(*fn)(void *),
+                          void *restrict data);
+void *ia2_thread_begin(void *arg);
+
+struct ia2_thread_thunk {
+    void *(*fn)(void *);
+    void *data;
+};
+
 #include "dav1d/dav1d.h"
 #include "dav1d/data.h"
 
@@ -97,6 +110,25 @@ COLD void dav1d_default_settings(Dav1dSettings *const s) {
 }
 
 static void close_internal(Dav1dContext **const c_out, int flush);
+
+static int create_worker_thread(pthread_t *const thread,
+                                const pthread_attr_t *const attr,
+                                void *(*fn)(void *), void *data)
+{
+    void *const mmap_res = mmap(NULL, sizeof(struct ia2_thread_thunk),
+                                PROT_READ | PROT_WRITE,
+                                MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (mmap_res == MAP_FAILED)
+        return -1;
+
+    struct ia2_thread_thunk *const thread_thunk = mmap_res;
+    thread_thunk->fn = fn;
+    thread_thunk->data = data;
+    const int rc = __real_pthread_create(thread, attr, ia2_thread_begin, thread_thunk);
+    if (rc) munmap(mmap_res, sizeof(*thread_thunk));
+    return rc;
+}
+
 
 NO_SANITIZE("cfi-icall") // CFI is broken with dlsym()
 static COLD size_t get_stack_size_internal(const pthread_attr_t *const thread_attr) {
@@ -383,7 +415,9 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
                 t->task_thread.td.thread = NULL;
                 goto error;
             }
-            if (pthread_create(t->task_thread.td.thread, thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
+            if (create_worker_thread(t->task_thread.td.thread, thread_attr,
+                                     IA2_IGNORE(dav1d_worker_task), t))
+            {
                 pthread_cond_destroy(t->task_thread.td.cond);
                 pthread_mutex_destroy(t->task_thread.td.lock);
                 shared_free(t->task_thread.td.cond);
