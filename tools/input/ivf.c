@@ -37,6 +37,9 @@
 
 #include "input/demuxer.h"
 
+void *shared_malloc(size_t bytes);
+void shared_free(void *ptr);
+
 typedef struct DemuxerPriv {
     FILE *f;
     int broken;
@@ -61,6 +64,11 @@ static unsigned rl32(const uint8_t *const p) {
 
 static int64_t rl64(const uint8_t *const p) {
     return (((uint64_t) rl32(&p[4])) << 32) | rl32(p);
+}
+
+static void ivf_shared_data_free(const uint8_t *const ptr, void *const cookie) {
+    (void) cookie;
+    shared_free((void *) ptr);
 }
 
 static int ivf_open(IvfInputContext *const c, const char *const file,
@@ -156,10 +164,14 @@ static int ivf_read(IvfInputContext *const c, Dav1dData *const buf) {
     int64_t off;
     uint64_t ts;
     if (ivf_read_header(c, &sz, &off, &ts)) return -1;
-    if (!(ptr = dav1d_data_create(buf, sz))) return -1;
+    if (!(ptr = shared_malloc(sz))) return -1;
     if (fread(ptr, sz, 1, c->f) != 1) {
         fprintf(stderr, "Failed to read frame data: %s\n", strerror(errno));
-        dav1d_data_unref(buf);
+        shared_free(ptr);
+        return -1;
+    }
+    if (dav1d_data_wrap(buf, ptr, sz, ivf_shared_data_free, NULL)) {
+        shared_free(ptr);
         return -1;
     }
     buf->m.offset = off;

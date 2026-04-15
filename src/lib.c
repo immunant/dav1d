@@ -39,6 +39,9 @@
 #include <dlfcn.h>
 #endif
 
+void *shared_malloc(size_t bytes);
+void shared_free(void *ptr);
+
 #include "dav1d/dav1d.h"
 #include "dav1d/data.h"
 
@@ -94,7 +97,7 @@ static void close_internal(Dav1dContext **const c_out, int flush);
 
 NO_SANITIZE("cfi-icall") // CFI is broken with dlsym()
 static COLD size_t get_stack_size_internal(const pthread_attr_t *const thread_attr) {
-#if defined(__linux__) && HAVE_DLSYM && defined(__GLIBC__)
+#if defined(__linux__) && HAVE_DLSYM && defined(__GLIBC__) && !IA2_ENABLE
     /* glibc has an issue where the size of the TLS is subtracted from the stack
      * size instead of allocated separately. As a result the specified stack
      * size may be insufficient when used in an application with large amounts
@@ -140,7 +143,7 @@ COLD int dav1d_get_frame_delay(const Dav1dSettings *const s) {
 }
 
 COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
-    static pthread_once_t initted = PTHREAD_ONCE_INIT;
+    static pthread_once_t initted IA2_SHARED_DATA = PTHREAD_ONCE_INIT;
     pthread_once(&initted, IA2_IGNORE(init_internal));
 
     validate_input_or_ret(c_out != NULL, DAV1D_ERR(EINVAL));
@@ -158,11 +161,15 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     validate_input_or_ret(s->decode_frame_type >= DAV1D_DECODEFRAMETYPE_ALL &&
                           s->decode_frame_type <= DAV1D_DECODEFRAMETYPE_KEY, DAV1D_ERR(EINVAL));
 
-    pthread_attr_t thread_attr;
-    if (pthread_attr_init(&thread_attr)) return DAV1D_ERR(ENOMEM);
-    size_t stack_size = 1024 * 1024 + get_stack_size_internal(&thread_attr);
+    pthread_attr_t *thread_attr = shared_malloc(sizeof(*thread_attr));
+    if (!thread_attr) return DAV1D_ERR(ENOMEM);
+    if (pthread_attr_init(thread_attr)) {
+        shared_free(thread_attr);
+        return DAV1D_ERR(ENOMEM);
+    }
+    size_t stack_size = 1024 * 1024 + get_stack_size_internal(thread_attr);
 
-    pthread_attr_setstacksize(&thread_attr, stack_size);
+    pthread_attr_setstacksize(thread_attr, stack_size);
 
     Dav1dContext *const c = *c_out = dav1d_alloc_aligned(ALLOC_COMMON_CTX, sizeof(*c), 64);
     if (!c) goto error;
@@ -281,7 +288,7 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
                 pthread_mutex_destroy(&t->task_thread.td.lock);
                 goto error;
             }
-            if (pthread_create(&t->task_thread.td.thread, &thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
+            if (pthread_create(&t->task_thread.td.thread, thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
                 pthread_cond_destroy(&t->task_thread.td.cond);
                 pthread_mutex_destroy(&t->task_thread.td.lock);
                 goto error;
@@ -292,13 +299,15 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     dav1d_pal_dsp_init(&c->pal_dsp);
     dav1d_refmvs_dsp_init(&c->refmvs_dsp);
 
-    pthread_attr_destroy(&thread_attr);
+    pthread_attr_destroy(thread_attr);
+    shared_free(thread_attr);
 
     return 0;
 
 error:
     if (c) close_internal(c_out, 0);
-    pthread_attr_destroy(&thread_attr);
+    pthread_attr_destroy(thread_attr);
+    shared_free(thread_attr);
     return DAV1D_ERR(ENOMEM);
 }
 
