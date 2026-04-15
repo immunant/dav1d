@@ -35,10 +35,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "input/demuxer.h"
+#include <ia2_allocator.h>
 
-void *shared_malloc(size_t bytes);
-void shared_free(void *ptr);
+#include "input/demuxer.h"
 
 typedef struct DemuxerPriv {
     FILE *f;

@@ -39,8 +39,7 @@
 #include <dlfcn.h>
 #endif
 
-void *shared_malloc(size_t bytes);
-void shared_free(void *ptr);
+#include <ia2_allocator.h>
 
 #include "dav1d/dav1d.h"
 #include "dav1d/data.h"

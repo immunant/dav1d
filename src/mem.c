@@ -29,10 +29,9 @@
 
 #include <stdint.h>
 
-#include "src/internal.h"
+#include <ia2_allocator.h>
 
-void *shared_malloc(size_t bytes);
-void shared_free(void *ptr);
+#include "src/internal.h"
 
 #if TRACK_HEAP_ALLOCATIONS
 #include <stdio.h>
