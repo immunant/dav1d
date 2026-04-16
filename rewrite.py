@@ -41,8 +41,14 @@ def parse_ldd(ldd_output: str) -> Generator[LddPath, None, None]:
         name, rest = parts
         if rest == "not found":
             raise FileNotFoundError(name)
+        name_path = Path(name)
+        # ldd may emit the interpreter with an absolute name on the lhs,
+        # e.g. /path/to/custom/ld-linux.so => /lib64/ld-linux.so (...).
+        # Treating this like a regular dependency overwrites IA2's loader.
+        if name_path.is_absolute():
+            continue
         path, rest = rest.rsplit(" (")
-        yield LddPath(name=Path(name), path=Path(path))
+        yield LddPath(name=name_path, path=Path(path))
 
 
 def filter_srcs(srcs: Sequence[Path]) -> Generator[Path, Any, Any]:
@@ -270,6 +276,15 @@ def main(
         ninja["pad-tls"]()
         ninja["partition-alloc-padding"]()
         ninja["libia2"]()
+
+    runtime_ldso_name = {
+        TargetArch.X86_64: "ld-linux-x86-64.so.2",
+        TargetArch.AArch64: "ld-linux-aarch64.so.1",
+    }[target_arch]
+    sysroot_ldso = ia2_build_dir / "external/glibc/sysroot/lib" / runtime_ldso_name
+    runtime_ldso = ia2_build_dir / "runtime/libia2" / runtime_ldso_name
+    if sysroot_ldso.exists():
+        shutil.copy2(sysroot_ldso, runtime_ldso)
 
     ia2_rewriter = local[ia2_build_dir / "tools/rewriter/ia2-rewriter"]
     pad_tls = local[ia2_build_dir / "tools/pad-tls/pad-tls"]
