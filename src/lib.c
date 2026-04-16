@@ -96,12 +96,27 @@ static void close_internal(Dav1dContext **const c_out, int flush);
 
 NO_SANITIZE("cfi-icall") // CFI is broken with dlsym()
 static COLD size_t get_stack_size_internal(const pthread_attr_t *const thread_attr) {
-#if defined(__linux__) && HAVE_DLSYM && defined(__GLIBC__)
+#if defined(__linux__) && HAVE_DLSYM && defined(__GLIBC__) && !IA2_ENABLE
     /* glibc has an issue where the size of the TLS is subtracted from the stack
      * size instead of allocated separately. As a result the specified stack
      * size may be insufficient when used in an application with large amounts
      * of TLS data. The following is a workaround to compensate for that.
-     * See https://sourceware.org/bugzilla/show_bug.cgi?id=11787 */
+     * See https://sourceware.org/bugzilla/show_bug.cgi?id=11787
+     *
+     * IA2 intentionally disables this probe. The public glibc dlsym() path is
+     * caller-sensitive: for RTLD_DEFAULT lookups it records the current call
+     * site and uses that caller identity during symbol resolution. A normal
+     * IA2 out-of-line call gate preserves permissions but changes the apparent
+     * caller, while leaving dlsym() fully unwrapped preserves caller identity
+     * but makes the dynamic loader run under the active compartment's PKRU.
+     * Neither is a clean drop-in replacement for ordinary libc calls.
+     *
+     * This specific lookup is only a glibc-private workaround probe for
+     * __pthread_get_minstack, not core decode functionality. Under IA2 we also
+     * switch newly created threads onto IA2-managed compartment stacks, so the
+     * exact glibc stack/TLS accounting behind this probe is not something we
+     * should rely on by default. The safest narrow policy is therefore to skip
+     * the probe entirely when IA2 is enabled. */
     size_t (*const get_minstack)(const pthread_attr_t*) =
         dlsym(RTLD_DEFAULT, "__pthread_get_minstack");
     if (get_minstack)
