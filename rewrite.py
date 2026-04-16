@@ -427,6 +427,34 @@ def main(
             ), f"failed to replace `{old}` with `{new}` in `{str(path)}`"
             path.write_text(new_text)
 
+        callgate_wrapper_c = Path("callgate_wrapper.c")
+        callgate_text = callgate_wrapper_c.read_text()
+        once_start = callgate_text.find('"__wrap_pthread_once:\\n"')
+        once_end = callgate_text.find(
+            '".size __wrap_pthread_once, .-__wrap_pthread_once\\n"', once_start
+        )
+        assert once_start >= 0 and once_end >= 0, "failed to locate __wrap_pthread_once block"
+        once_block = callgate_text[once_start:once_end]
+        once_old = '"movl $0xfffffff0, %eax\\n"'
+        once_new = '"movl $0xffffffc0, %eax\\n"'
+        assert once_old in once_block, "failed to find pthread_once call-phase PKRU immediate"
+        once_block = once_block.replace(once_old, once_new, 1)
+        callgate_text = callgate_text[:once_start] + once_block + callgate_text[once_end:]
+        callgate_wrapper_c.write_text(callgate_text)
+
+        clang[
+            "-target",
+            llvm_target,
+            "-shared",
+            "-fPIC",
+            "-Wl,-z,now",
+            rewritten_dir / "callgate_wrapper.c",
+            "-I",
+            ia2_dir / "runtime/libia2/include/",
+            "-o",
+            rpath / "libcallgates.so",
+        ]()
+
     shutil.copy(
         ia2_build_dir / "runtime/partition-alloc/libpartition-alloc.so",
         rpath,
