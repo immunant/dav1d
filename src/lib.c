@@ -140,7 +140,7 @@ COLD int dav1d_get_frame_delay(const Dav1dSettings *const s) {
 }
 
 COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
-    static pthread_once_t initted = PTHREAD_ONCE_INIT;
+    static pthread_once_t initted IA2_SHARED_DATA = PTHREAD_ONCE_INIT;
     pthread_once(&initted, IA2_IGNORE(init_internal));
 
     validate_input_or_ret(c_out != NULL, DAV1D_ERR(EINVAL));
