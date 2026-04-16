@@ -381,6 +381,7 @@ def main(
             "data.h",
             "lib.c",
             "log.c",
+            "mem.c",
             "obu.c",
             "picture.c",
             "ref.c",

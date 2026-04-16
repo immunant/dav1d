@@ -29,6 +29,8 @@
 
 #include <stdint.h>
 
+#include <ia2_allocator.h>
+
 #include "src/internal.h"
 
 #if TRACK_HEAP_ALLOCATIONS
@@ -218,7 +220,7 @@ COLD void dav1d_log_alloc_stats(Dav1dContext *const c) {
 
 static COLD void mem_pool_destroy(Dav1dMemPool *const pool) {
     pthread_mutex_destroy(&pool->lock);
-    dav1d_free(pool);
+    shared_free(pool);
 }
 
 void dav1d_mem_pool_push(Dav1dMemPool *const pool, Dav1dMemPoolBuffer *const buf) {
@@ -276,8 +278,7 @@ alloc:
 COLD int dav1d_mem_pool_init(const enum AllocationType type,
                              Dav1dMemPool **const ppool)
 {
-    Dav1dMemPool *const pool = dav1d_malloc(ALLOC_COMMON_CTX,
-                                            sizeof(Dav1dMemPool));
+    Dav1dMemPool *const pool = shared_malloc(sizeof(Dav1dMemPool));
     if (pool) {
         if (!pthread_mutex_init(&pool->lock, NULL)) {
             pool->buf = NULL;
@@ -289,7 +290,7 @@ COLD int dav1d_mem_pool_init(const enum AllocationType type,
             *ppool = pool;
             return 0;
         }
-        dav1d_free(pool);
+        shared_free(pool);
     }
     *ppool = NULL;
     return DAV1D_ERR(ENOMEM);
