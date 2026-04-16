@@ -283,8 +283,6 @@ def main(
     }[target_arch]
     sysroot_ldso = ia2_build_dir / "external/glibc/sysroot/lib" / runtime_ldso_name
     runtime_ldso = ia2_build_dir / "runtime/libia2" / runtime_ldso_name
-    if sysroot_ldso.exists():
-        shutil.copy2(sysroot_ldso, runtime_ldso)
 
     ia2_rewriter = local[ia2_build_dir / "tools/rewriter/ia2-rewriter"]
     pad_tls = local[ia2_build_dir / "tools/pad-tls/pad-tls"]
