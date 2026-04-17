@@ -35,6 +35,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <ia2_allocator.h>
+
 #include "input/demuxer.h"
 
 typedef struct DemuxerPriv {
@@ -61,6 +63,11 @@ static unsigned rl32(const uint8_t *const p) {
 
 static int64_t rl64(const uint8_t *const p) {
     return (((uint64_t) rl32(&p[4])) << 32) | rl32(p);
+}
+
+static void ivf_shared_data_free(const uint8_t *const ptr, void *const cookie) {
+    (void) cookie;
+    shared_free((void *) ptr);
 }
 
 static int ivf_open(IvfInputContext *const c, const char *const file,
@@ -156,10 +163,22 @@ static int ivf_read(IvfInputContext *const c, Dav1dData *const buf) {
     int64_t off;
     uint64_t ts;
     if (ivf_read_header(c, &sz, &off, &ts)) return -1;
-    if (!(ptr = dav1d_data_create(buf, sz))) return -1;
+    /* ivf_read() runs in the tools compartment while dav1d_data_create() would
+     * ordinarily return decoder-owned heap from libdav1d. Passing that private
+     * buffer to fread() causes compartment-1 code to write into compartment-2
+     * memory, which is exactly the ownership mismatch that faults in strict
+     * IA2 mode. Use the explicit shared allocator here because this packet
+     * payload is intentionally handed from the demux side to the decoder. */
+    if (!(ptr = shared_malloc(sz))) return -1;
     if (fread(ptr, sz, 1, c->f) != 1) {
         fprintf(stderr, "Failed to read frame data: %s\n", strerror(errno));
-        dav1d_data_unref(buf);
+        shared_free(ptr);
+        return -1;
+    }
+    /* dav1d_data_wrap() transfers ownership of the shared payload into Dav1dData
+     * while keeping the free path explicit. */
+    if (dav1d_data_wrap(buf, ptr, sz, ivf_shared_data_free, NULL)) {
+        shared_free(ptr);
         return -1;
     }
     buf->m.offset = off;

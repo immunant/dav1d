@@ -41,8 +41,14 @@ def parse_ldd(ldd_output: str) -> Generator[LddPath, None, None]:
         name, rest = parts
         if rest == "not found":
             raise FileNotFoundError(name)
+        name_path = Path(name)
+        # ldd may emit the interpreter with an absolute name on the lhs,
+        # e.g. /path/to/custom/ld-linux.so => /lib64/ld-linux.so (...).
+        # Treating this like a regular dependency overwrites IA2's loader.
+        if name_path.is_absolute():
+            continue
         path, rest = rest.rsplit(" (")
-        yield LddPath(name=Path(name), path=Path(path))
+        yield LddPath(name=name_path, path=Path(path))
 
 
 def filter_srcs(srcs: Sequence[Path]) -> Generator[Path, Any, Any]:
@@ -271,6 +277,13 @@ def main(
         ninja["partition-alloc-padding"]()
         ninja["libia2"]()
 
+    runtime_ldso_name = {
+        TargetArch.X86_64: "ld-linux-x86-64.so.2",
+        TargetArch.AArch64: "ld-linux-aarch64.so.1",
+    }[target_arch]
+    sysroot_ldso = ia2_build_dir / "external/glibc/sysroot/lib" / runtime_ldso_name
+    runtime_ldso = ia2_build_dir / "runtime/libia2" / runtime_ldso_name
+
     ia2_rewriter = local[ia2_build_dir / "tools/rewriter/ia2-rewriter"]
     pad_tls = local[ia2_build_dir / "tools/pad-tls/pad-tls"]
 
@@ -366,6 +379,7 @@ def main(
             "data.h",
             "lib.c",
             "log.c",
+            "mem.c",
             "obu.c",
             "picture.c",
             "ref.c",
@@ -411,6 +425,34 @@ def main(
                 old_text != new_text
             ), f"failed to replace `{old}` with `{new}` in `{str(path)}`"
             path.write_text(new_text)
+
+        callgate_wrapper_c = Path("callgate_wrapper.c")
+        callgate_text = callgate_wrapper_c.read_text()
+        once_start = callgate_text.find('"__wrap_pthread_once:\\n"')
+        once_end = callgate_text.find(
+            '".size __wrap_pthread_once, .-__wrap_pthread_once\\n"', once_start
+        )
+        assert once_start >= 0 and once_end >= 0, "failed to locate __wrap_pthread_once block"
+        once_block = callgate_text[once_start:once_end]
+        once_old = '"movl $0xfffffff0, %eax\\n"'
+        once_new = '"movl $0xffffffc0, %eax\\n"'
+        assert once_old in once_block, "failed to find pthread_once call-phase PKRU immediate"
+        once_block = once_block.replace(once_old, once_new, 1)
+        callgate_text = callgate_text[:once_start] + once_block + callgate_text[once_end:]
+        callgate_wrapper_c.write_text(callgate_text)
+
+        clang[
+            "-target",
+            llvm_target,
+            "-shared",
+            "-fPIC",
+            "-Wl,-z,now",
+            rewritten_dir / "callgate_wrapper.c",
+            "-I",
+            ia2_dir / "runtime/libia2/include/",
+            "-o",
+            rpath / "libcallgates.so",
+        ]()
 
     shutil.copy(
         ia2_build_dir / "runtime/partition-alloc/libpartition-alloc.so",
