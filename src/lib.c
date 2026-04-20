@@ -39,6 +39,8 @@
 #include <dlfcn.h>
 #endif
 
+#include <ia2_allocator.h>
+
 #include "dav1d/dav1d.h"
 #include "dav1d/data.h"
 
@@ -94,12 +96,27 @@ static void close_internal(Dav1dContext **const c_out, int flush);
 
 NO_SANITIZE("cfi-icall") // CFI is broken with dlsym()
 static COLD size_t get_stack_size_internal(const pthread_attr_t *const thread_attr) {
-#if defined(__linux__) && HAVE_DLSYM && defined(__GLIBC__)
+#if defined(__linux__) && HAVE_DLSYM && defined(__GLIBC__) && !IA2_ENABLE
     /* glibc has an issue where the size of the TLS is subtracted from the stack
      * size instead of allocated separately. As a result the specified stack
      * size may be insufficient when used in an application with large amounts
      * of TLS data. The following is a workaround to compensate for that.
-     * See https://sourceware.org/bugzilla/show_bug.cgi?id=11787 */
+     * See https://sourceware.org/bugzilla/show_bug.cgi?id=11787
+     *
+     * IA2 intentionally disables this probe. The public glibc dlsym() path is
+     * caller-sensitive: for RTLD_DEFAULT lookups it records the current call
+     * site and uses that caller identity during symbol resolution. A normal
+     * IA2 out-of-line call gate preserves permissions but changes the apparent
+     * caller, while leaving dlsym() fully unwrapped preserves caller identity
+     * but makes the dynamic loader run under the active compartment's PKRU.
+     * Neither is a clean drop-in replacement for ordinary libc calls.
+     *
+     * This specific lookup is only a glibc-private workaround probe for
+     * __pthread_get_minstack, not core decode functionality. Under IA2 we also
+     * switch newly created threads onto IA2-managed compartment stacks, so the
+     * exact glibc stack/TLS accounting behind this probe is not something we
+     * should rely on by default. The safest narrow policy is therefore to skip
+     * the probe entirely when IA2 is enabled. */
     size_t (*const get_minstack)(const pthread_attr_t*) =
         dlsym(RTLD_DEFAULT, "__pthread_get_minstack");
     if (get_minstack)
@@ -158,11 +175,15 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     validate_input_or_ret(s->decode_frame_type >= DAV1D_DECODEFRAMETYPE_ALL &&
                           s->decode_frame_type <= DAV1D_DECODEFRAMETYPE_KEY, DAV1D_ERR(EINVAL));
 
-    pthread_attr_t thread_attr;
-    if (pthread_attr_init(&thread_attr)) return DAV1D_ERR(ENOMEM);
-    size_t stack_size = 1024 * 1024 + get_stack_size_internal(&thread_attr);
+    pthread_attr_t *thread_attr = shared_malloc(sizeof(*thread_attr));
+    if (!thread_attr) return DAV1D_ERR(ENOMEM);
+    if (pthread_attr_init(thread_attr)) {
+        shared_free(thread_attr);
+        return DAV1D_ERR(ENOMEM);
+    }
+    size_t stack_size = 1024 * 1024 + get_stack_size_internal(thread_attr);
 
-    pthread_attr_setstacksize(&thread_attr, stack_size);
+    pthread_attr_setstacksize(thread_attr, stack_size);
 
     Dav1dContext *const c = *c_out = dav1d_alloc_aligned(ALLOC_COMMON_CTX, sizeof(*c), 64);
     if (!c) goto error;
@@ -281,7 +302,7 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
                 pthread_mutex_destroy(&t->task_thread.td.lock);
                 goto error;
             }
-            if (pthread_create(&t->task_thread.td.thread, &thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
+            if (pthread_create(&t->task_thread.td.thread, thread_attr, IA2_IGNORE(dav1d_worker_task), t)) {
                 pthread_cond_destroy(&t->task_thread.td.cond);
                 pthread_mutex_destroy(&t->task_thread.td.lock);
                 goto error;
@@ -292,13 +313,15 @@ COLD int dav1d_open(Dav1dContext **const c_out, const Dav1dSettings *const s) {
     dav1d_pal_dsp_init(&c->pal_dsp);
     dav1d_refmvs_dsp_init(&c->refmvs_dsp);
 
-    pthread_attr_destroy(&thread_attr);
+    pthread_attr_destroy(thread_attr);
+    shared_free(thread_attr);
 
     return 0;
 
 error:
     if (c) close_internal(c_out, 0);
-    pthread_attr_destroy(&thread_attr);
+    pthread_attr_destroy(thread_attr);
+    shared_free(thread_attr);
     return DAV1D_ERR(ENOMEM);
 }
 
